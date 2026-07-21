@@ -106,7 +106,7 @@ export default function Home() {
         <div className="fixed inset-0 z-0">
           <Image
             src="https://images.unsplash.com/photo-1614730321143-b6c4fc16ea29?w=1920&q=90"
-            alt="Earth from orbit"
+            alt=""
             fill
             className="object-cover"
             priority
@@ -120,7 +120,7 @@ export default function Home() {
         <div className="fixed inset-0 z-[1] pointer-events-none opacity-30 mix-blend-screen">
           <Image
             src="https://images.unsplash.com/photo-1517976487492-5750f3195933?w=1920&q=85"
-            alt="Command center"
+            alt=""
             fill
             className="object-cover"
           />
