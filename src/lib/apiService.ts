@@ -8,53 +8,18 @@ export interface NewsItem {
   publishedAt: string;
 }
 
-// --- Groq LLM Service ---
+// --- AI LLM Service (xAI / OpenAI-compatible) ---
 
-const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const AI_ENDPOINT = 'https://api.x.ai/v1/chat/completions';
+const AI_MODEL = 'grok-2-1212';
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
-export async function callGroq(prompt: string): Promise<string> {
-  const apiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
-
-  if (!apiKey) {
-    return simulateGroqResponse(prompt);
-  }
-
-  try {
-    const res = await fetch(GROQ_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-        max_tokens: 1024,
-      }),
-    });
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`Groq API error (${res.status}): ${errorText}`);
-    }
-
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content ?? '';
-  } catch (err) {
-    console.error('Groq call failed, falling back to simulated response:', err);
-    return simulateGroqResponse(prompt);
-  }
-}
-
 export async function chatWithAI(systemPrompt: string, messages: { role: 'user' | 'assistant'; content: string }[], userMessage: string): Promise<string> {
-  const apiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
+  const apiKey = process.env.NEXT_PUBLIC_XAI_API_KEY;
 
   const conversation: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -63,35 +28,36 @@ export async function chatWithAI(systemPrompt: string, messages: { role: 'user' 
   ];
 
   if (!apiKey) {
+    // Smart fallback when no API key is configured
     await new Promise((r) => setTimeout(r, 600 + Math.random() * 900));
-    const lastQuestion = userMessage.toLowerCase();
-    if (lastQuestion.includes('agent') || lastQuestion.includes('scout') || lastQuestion.includes('strategist') || lastQuestion.includes('tactical') || lastQuestion.includes('commander')) {
+    const q = userMessage.toLowerCase();
+    if (q.includes('agent') || q.includes('scout') || q.includes('strategist') || q.includes('tactical') || q.includes('commander')) {
       return `Great question about Hyperion's agents! The platform uses a 4-agent swarm: Scout (anomaly detection), Strategist (risk modeling), Tactical (mitigation planning), and Commander (decision approval). Each agent communicates via the War Room graph. Would you like me to go deeper into any specific agent?`;
     }
-    if (lastQuestion.includes('upload') || lastQuestion.includes('csv') || lastQuestion.includes('data')) {
+    if (q.includes('upload') || q.includes('csv') || q.includes('data')) {
       return `You can upload CSV data in the Intelligence view or use the "Load Sample" button in the War Room. Hyperion analyzes 8 telemetry columns (throughput, latency, error rate, etc.) and scans for statistical anomalies using outlier detection.`;
     }
-    if (lastQuestion.includes('ticket') || lastQuestion.includes('orchestrator')) {
+    if (q.includes('ticket') || q.includes('orchestrator')) {
       return `The Ticket Orchestrator autonomously resolves support tickets using 4 sub-agents: Ticket Analyzer, Knowledge Searcher, Database Operator, and Resolution Composer. Check it out under the Tickets view!`;
     }
-    if (lastQuestion.includes('code') || lastQuestion.includes('generate')) {
+    if (q.includes('code') || q.includes('generate')) {
       return `The Code Agent generates JavaScript functions from natural language. It has a self-correction loop: generate → validate syntax → run 5 test cases → parse errors → refactor → retry (up to 3 attempts). Try "Fibonacci" or "Palindrome checker" in the Code AI view!`;
     }
-    if (lastQuestion.includes('hello') || lastQuestion.includes('hi') || lastQuestion.includes('hey')) {
+    if (q.includes('hello') || q.includes('hi') || q.includes('hey')) {
       return `Hello! I'm the Hyperion Assistant. I can answer questions about the platform's agents (Scout, Strategist, Tactical, Commander), features (voice commands, TTS, CSV analysis, ticket orchestration, code generation), and more. What would you like to know?`;
     }
     return `That's an interesting question about Hyperion! The platform is designed as an autonomous AI War Room for enterprise threat detection and mitigation. You can navigate between 5 views: War Room, Intelligence, Threats, Tickets, and Code AI. Feel free to ask about any specific feature!`;
   }
 
   try {
-    const res = await fetch(GROQ_ENDPOINT, {
+    const res = await fetch(AI_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: GROQ_MODEL,
+        model: AI_MODEL,
         messages: conversation,
         temperature: 0.7,
         max_tokens: 1024,
@@ -100,19 +66,19 @@ export async function chatWithAI(systemPrompt: string, messages: { role: 'user' 
 
     if (!res.ok) {
       const errorText = await res.text();
-      throw new Error(`Groq API error (${res.status}): ${errorText}`);
+      throw new Error(`AI API error (${res.status}): ${errorText}`);
     }
 
     const data = await res.json();
     return data.choices?.[0]?.message?.content ?? 'I apologize, I was unable to process that request.';
   } catch (err) {
-    console.error('Groq chat failed:', err);
+    console.error('AI chat failed:', err);
     return 'I apologize, but I encountered an error processing your request. Please try again.';
   }
 }
 
-function simulateGroqResponse(prompt: string): string {
-  return `[Simulated Groq Response] Based on analysis of "${prompt.slice(0, 60)}...", the recommended action is to monitor the situation and prepare contingency plans.`;
+export async function callGroq(prompt: string): Promise<string> {
+  return chatWithAI('You are a helpful assistant.', [], prompt);
 }
 
 // --- NewsAPI Service ---
