@@ -2,14 +2,17 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Activity, Shield, ChevronDown, Terminal, Zap, Radio, Mic, MicOff, Command, ArrowRight, Globe, Satellite, Radar } from 'lucide-react';
+import { Upload, Activity, Shield, ChevronDown, Terminal, Zap, Radio, Mic, MicOff, Command, ArrowRight, Globe, Satellite, Radar, Brain, Target, Crown, AlertTriangle, BarChart3, Layers, RefreshCw } from 'lucide-react';
 import Image from 'next/image';
 import SplashScreen from '@/components/SplashScreen';
 import DataUploader from '@/components/DataUploader';
 import AgentGraph from '@/components/AgentGraph';
+import ParticleField from '@/components/ParticleField';
+import ScanningLine from '@/components/ScanningLine';
 import { useCSVParser } from '@/hooks/useCSVParser';
 import { useAgentSystem } from '@/hooks/useAgentSystem';
 import { useVoiceCommands } from '@/hooks/useVoiceCommands';
+import { speakText } from '@/lib/apiService';
 import { Anomaly, TacticalAction, AgentScenario } from '@/types';
 
 const severityColors: Record<string, string> = {
@@ -19,14 +22,24 @@ const severityColors: Record<string, string> = {
   critical: 'text-crimson border-crimson/30 bg-crimson/10',
 };
 
-function CollapsibleSection({ title, icon, defaultOpen, children }: { title: string; icon: React.ReactNode; defaultOpen?: boolean; children: React.ReactNode }) {
+const severityGradients: Record<string, string> = {
+  low: 'from-titanium/20 to-titanium/5',
+  moderate: 'from-amber/30 to-amber/10',
+  high: 'from-crimson/40 to-crimson/10',
+  critical: 'from-crimson/60 to-crimson/20',
+};
+
+function CollapsibleSection({ title, icon, defaultOpen, badge, children }: { title: string; icon: React.ReactNode; defaultOpen?: boolean; badge?: string | number; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen ?? false);
   return (
-    <div className="glass-panel rounded-2xl overflow-hidden">
-      <button onClick={() => setOpen(!open)} className="w-full px-6 py-4 flex items-center justify-between text-left">
+    <div className="glass-panel rounded-2xl overflow-hidden transition-all duration-300">
+      <button onClick={() => setOpen(!open)} className="w-full px-6 py-4 flex items-center justify-between text-left group">
         <div className="flex items-center gap-3">
-          <span className="text-titanium/40">{icon}</span>
-          <span className="text-sm font-medium text-pearl/70">{title}</span>
+          <span className="text-titanium/40 group-hover:text-ice-blue/60 transition-colors">{icon}</span>
+          <span className="text-sm font-medium text-pearl/70 group-hover:text-pearl/90 transition-colors">{title}</span>
+          {badge !== undefined && (
+            <span className="text-[9px] px-2 py-0.5 rounded-full bg-ice-blue/10 text-ice-blue/80 font-mono">{badge}</span>
+          )}
         </div>
         <motion.div animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
           <ChevronDown size={14} className="text-titanium/30" />
@@ -51,17 +64,17 @@ function CollapsibleSection({ title, icon, defaultOpen, children }: { title: str
 function VoiceWaveform() {
   const [bars] = useState(() =>
     Array.from({ length: 32 }, () => ({
-      height: Math.random() * 24 + 2,
+      height: Math.random() * 28 + 3,
       duration: 0.4 + Math.random() * 0.3,
     }))
   );
 
   return (
-    <div className="flex items-center gap-0.5 h-8 mb-3">
+    <div className="flex items-center gap-[2px] h-10 mb-3">
       {bars.map((bar, i) => (
         <motion.div
           key={i}
-          className="flex-1 rounded-full bg-gradient-to-t from-ice-blue/40 to-ice-blue/80"
+          className="flex-1 rounded-full bg-gradient-to-t from-ice-blue/30 to-ice-blue/90"
           animate={{ height: [2, bar.height, 2] }}
           transition={{ duration: bar.duration, repeat: Infinity, ease: 'easeInOut', delay: i * 0.03 }}
         />
@@ -77,24 +90,57 @@ export default function Home() {
   const mainRef = useRef<HTMLDivElement>(null);
 
   const { csvData, parsing, error, parseFile, reset: resetCSV } = useCSVParser();
-  const { agents, state, messages, running, completed, runAnalysis, reset: resetAgents } = useAgentSystem();
+  const { agents, state, messages, running, completed, currentPhase, runAnalysis, reset: resetAgents } = useAgentSystem();
 
   const scrollToSection = useCallback((id: string) => {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
 
+  const loadSample = useCallback(() => {
+    fetch('/sample_data.csv')
+      .then((r) => r.text())
+      .then((text) => {
+        const file = new File([text], 'sample_data.csv', { type: 'text/csv' });
+        parseFile(file);
+      });
+  }, [parseFile]);
+
+  const deployAnalysis = useCallback(() => {
+    if (csvData && !running) {
+      resetAgents();
+      runAnalysis(csvData);
+      speakText('Deploying analysis. All agents activating.').catch(() => {});
+    }
+  }, [csvData, running, resetAgents, runAnalysis]);
+
   const voiceCommands = [
-    { keywords: ['open war room', 'war room', 'command center'], action: () => { setView('war-room'); scrollToSection('command-center'); }, description: 'Open War Room' },
-    { keywords: ['activate scout', 'scout', 'show anomalies'], action: () => { setView('war-room'); scrollToSection('command-center'); }, description: 'View Scout' },
-    { keywords: ['show risks', 'show dashboard', 'dashboard', 'anomalies'], action: () => { setView('dashboard'); scrollToSection('command-center'); }, description: 'View Dashboard' },
-    { keywords: ['emergency mode', 'emergency', 'full alert'], action: () => { setView('war-room'); if (csvData && !running) { resetAgents(); runAnalysis(csvData); } scrollToSection('command-center'); }, description: 'Emergency Mode' },
-    { keywords: ['upload data', 'load data', 'import'], action: () => { setView('upload'); scrollToSection('command-center'); }, description: 'Upload Data' },
-    { keywords: ['start analysis', 'analyze', 'run', 'execute'], action: () => { if (csvData && !running) { resetAgents(); runAnalysis(csvData); } }, description: 'Start Analysis' },
-    { keywords: ['reset', 'clear', 'stop'], action: () => { resetAgents(); resetCSV(); }, description: 'Reset System' },
+    { keywords: ['open war room', 'war room', 'command center'], action: () => { setView('war-room'); scrollToSection('command-center'); }, description: 'Open War Room', response: 'Opening War Room. All stations online.' },
+    { keywords: ['activate scout', 'scout', 'show anomalies'], action: () => { setView('war-room'); scrollToSection('command-center'); }, description: 'View Scout', response: 'Scout agent feed displayed.' },
+    { keywords: ['show risks', 'show dashboard', 'dashboard', 'anomalies'], action: () => { setView('dashboard'); scrollToSection('command-center'); }, description: 'View Dashboard', response: 'Opening threat dashboard.' },
+    { keywords: ['emergency mode', 'emergency', 'full alert', 'lockdown'], action: () => { setView('war-room'); if (csvData && !running) { resetAgents(); runAnalysis(csvData); } scrollToSection('command-center'); }, description: 'Emergency Mode', response: 'Emergency mode engaged. All agents activated.' },
+    { keywords: ['upload data', 'load data', 'import'], action: () => { setView('upload'); scrollToSection('command-center'); }, description: 'Upload Data', response: 'Opening intelligence upload interface.' },
+    { keywords: ['start analysis', 'analyze', 'run', 'execute','deploy analysis'], action: () => { deployAnalysis(); }, description: 'Start Analysis', response: 'Analysis initiated. Agent swarm deploying.' },
+    { keywords: ['reset', 'clear', 'stop', 'stand down'], action: () => { resetAgents(); resetCSV(); speakText('System reset complete. Standing by.').catch(() => {}); }, description: 'Reset System', response: 'All systems reset. Ready for new mission.' },
+    { keywords: ['load sample', 'sample data', 'demo mode'], action: () => { loadSample(); }, description: 'Load Sample Data', response: 'Loading sample intelligence dataset.' },
+    { keywords: ['isolate', 'quarantine', 'lock down'], action: () => { setView('dashboard'); }, description: 'Isolate Anomalies', response: 'Isolating threat nodes. Quarantine protocols active.' },
+    { keywords: ['status report', 'status', 'report', 'sitrep'], action: () => {
+      const active = agents.filter(a => a.status !== 'idle').length;
+      const msg = `Situation report: ${active} of 4 agents active. ${state.scout.anomalies.length} anomalies detected. ${state.tactical.actions.length} mitigations queued.`;
+      speakText(msg).catch(() => {});
+    }, description: 'Status Report', response: 'Generating situation report.' },
+    { keywords: ['authorize', 'approve', 'execute plan', 'green light'], action: () => {
+      if (completed) {
+        speakText('All mitigations already authorized and deployed. Mission complete.').catch(() => {});
+      } else if (running) {
+        speakText('Analysis still in progress. Awaiting commander recommendation.').catch(() => {});
+      } else {
+        speakText('No active mission to authorize. Please run an analysis first.').catch(() => {});
+      }
+    }, description: 'Authorize Protocol', response: 'Authorization protocols checked.' },
   ];
 
-  const { isListening, transcript, isSupported, toggleListening, lastCommand } = useVoiceCommands(voiceCommands);
+  const { isListening, transcript, isSupported, toggleListening, lastCommand, isSpeaking } = useVoiceCommands(voiceCommands);
 
   return (
     <>
@@ -102,22 +148,28 @@ export default function Home() {
 
       <div ref={mainRef} id="command-center" className="relative min-h-screen bg-obsidian overflow-hidden">
 
+        {/* Particle Field Background */}
+        <ParticleField />
+
+        {/* Scanning Line */}
+        {running && <ScanningLine speed={3} />}
+
         {/* Hero Background — Earth from orbit */}
-        <div className="fixed inset-0 z-0">
+        <div className="fixed inset-0 z-[2]">
           <Image
             src="https://images.unsplash.com/photo-1614730321143-b6c4fc16ea29?w=1920&q=90"
             alt=""
             fill
-            className="object-cover"
+            className="object-cover opacity-30"
             priority
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-obsidian/70 via-obsidian/50 to-obsidian/90" />
-          <div className="absolute inset-0 bg-gradient-to-r from-obsidian/30 via-transparent to-obsidian/30" />
-          <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-obsidian to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-b from-obsidian/90 via-obsidian/70 to-obsidian/95" />
+          <div className="absolute inset-0 bg-gradient-to-r from-obsidian/50 via-transparent to-obsidian/50" />
+          <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-obsidian to-transparent" />
         </div>
 
-        {/* Command Center image overlay for depth */}
-        <div className="fixed inset-0 z-[1] pointer-events-none opacity-30 mix-blend-screen">
+        {/* Command Center overlay */}
+        <div className="fixed inset-0 z-[3] pointer-events-none opacity-20 mix-blend-screen">
           <Image
             src="https://images.unsplash.com/photo-1517976487492-5750f3195933?w=1920&q=85"
             alt=""
@@ -125,35 +177,63 @@ export default function Home() {
             className="object-cover"
           />
         </div>
-        <div className="fixed inset-0 z-[1] bg-gradient-to-t from-obsidian via-obsidian/80 to-obsidian/60 pointer-events-none" />
+        <div className="fixed inset-0 z-[3] bg-gradient-to-t from-obsidian via-obsidian/90 to-obsidian/70 pointer-events-none" />
+
+        {/* Grid overlay */}
+        <div className="fixed inset-0 z-[1] pointer-events-none opacity-[0.015]"
+          style={{ backgroundImage: 'linear-gradient(rgba(100,210,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(100,210,255,0.3) 1px, transparent 1px)', backgroundSize: '60px 60px' }}
+        />
+
+        {/* Current Phase Indicator */}
+        {running && (
+          <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50">
+            <div className="glass rounded-full px-5 py-2 flex items-center gap-3 border border-ice-blue/10 shadow-glow-blue">
+              <motion.div className="w-2 h-2 rounded-full bg-ice-blue" animate={{ scale: [1, 1.5, 1] }} transition={{ duration: 1, repeat: Infinity }} />
+              <span className="text-[10px] font-mono uppercase tracking-widest text-ice-blue/80">
+                {currentPhase ? `Phase: ${currentPhase.charAt(0).toUpperCase() + currentPhase.slice(1)} Agent` : 'Deploying...'}
+              </span>
+              <span className="text-[8px] text-titanium/40 font-mono">ACTIVE</span>
+            </div>
+          </div>
+        )}
 
         {/* Navigation */}
         <nav className="fixed top-0 left-0 right-0 z-50 px-6 pt-6">
           <div className="max-w-7xl mx-auto">
             <div className="glass rounded-2xl px-6 py-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-ice-blue/20 to-ice-blue/5 border border-ice-blue/20 flex items-center justify-center shadow-glow-blue">
-                  <Satellite size={16} className="text-ice-blue" />
-                </div>
+                <motion.div
+                  className="w-9 h-9 rounded-xl bg-gradient-to-br from-ice-blue/20 to-ice-blue/5 border border-ice-blue/20 flex items-center justify-center shadow-glow-blue"
+                  animate={running ? { scale: [1, 1.05, 1] } : {}}
+                  transition={{ duration: 2, repeat: running ? Infinity : 0 }}
+                >
+                  <Satellite size={18} className="text-ice-blue" />
+                </motion.div>
                 <div>
                   <span className="text-sm font-medium tracking-[0.25em] text-pearl/80">HYPERION</span>
                   <span className="text-[8px] tracking-[0.3em] text-titanium/40 uppercase ml-3">War Room OS</span>
                 </div>
+                {completed && (
+                  <span className="text-[8px] px-2 py-0.5 rounded-full bg-emerald/10 text-emerald/80 border border-emerald/10 font-mono tracking-wider ml-2">
+                    MISSION COMPLETE
+                  </span>
+                )}
               </div>
 
               <div className="hidden md:flex items-center gap-8">
                 {[
-                  { key: 'war-room', label: 'War Room' },
-                  { key: 'upload', label: 'Intelligence' },
-                  { key: 'dashboard', label: 'Threats' },
+                  { key: 'war-room', label: 'War Room', icon: <Satellite size={10} /> },
+                  { key: 'upload', label: 'Intelligence', icon: <Globe size={10} /> },
+                  { key: 'dashboard', label: 'Threats', icon: <AlertTriangle size={10} /> },
                 ].map((item) => (
                   <button
                     key={item.key}
                     onClick={() => setView(item.key)}
-                    className={`text-xs tracking-widest uppercase transition-all duration-300 relative ${
+                    className={`text-xs tracking-widest uppercase transition-all duration-300 relative flex items-center gap-2 ${
                       view === item.key ? 'text-ice-blue' : 'text-titanium/50 hover:text-pearl/70'
                     }`}
                   >
+                    <span className={view === item.key ? 'text-ice-blue' : 'text-titanium/30'}>{item.icon}</span>
                     {item.label}
                     {view === item.key && (
                       <motion.div
@@ -169,10 +249,10 @@ export default function Home() {
                 {isSupported && (
                   <button
                     onClick={toggleListening}
-                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${
+                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
                       isListening
-                        ? 'bg-crimson/20 text-crimson border border-crimson/30 shadow-glow-blue'
-                        : 'glass-light text-titanium/50 hover:text-pearl border border-pearl/5'
+                        ? 'bg-crimson/25 text-crimson border-2 border-crimson/40 shadow-glow-amber'
+                        : 'glass-light text-titanium/50 hover:text-pearl border border-pearl/5 hover:border-ice-blue/20'
                     }`}
                     onMouseEnter={() => setShowVoiceHUD(true)}
                     onMouseLeave={() => { if (!isListening) setTimeout(() => setShowVoiceHUD(false), 1200); }}
@@ -182,9 +262,9 @@ export default function Home() {
                   </button>
                 )}
                 <button
-                  onClick={() => { if (csvData && !running) { resetAgents(); runAnalysis(csvData); } }}
+                  onClick={deployAnalysis}
                   disabled={!csvData || running}
-                  className="group px-5 py-2 text-xs tracking-widest uppercase rounded-full bg-gradient-to-r from-ice-blue/20 to-ice-blue/10 text-ice-blue border border-ice-blue/20 hover:bg-ice-blue/30 transition-all duration-300 disabled:opacity-20 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="group px-5 py-2.5 text-xs tracking-widest uppercase rounded-full bg-gradient-to-r from-ice-blue/25 to-ice-blue/10 text-ice-blue border border-ice-blue/25 hover:from-ice-blue/35 hover:to-ice-blue/15 transition-all duration-300 disabled:opacity-20 disabled:cursor-not-allowed flex items-center gap-2 shadow-glow-blue/50"
                 >
                   {running ? (
                     <><motion.div className="w-3 h-3 rounded-full border-2 border-ice-blue/30 border-t-ice-blue" animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }} /> Deploying</>
@@ -210,10 +290,15 @@ export default function Home() {
                     <Command size={14} className="text-ice-blue" />
                     <span className="text-[10px] uppercase tracking-widest text-titanium/50">Voice Command Interface</span>
                     <span className={`text-[8px] ml-auto px-2 py-0.5 rounded-full ${
-                      isListening ? 'bg-emerald/10 text-emerald' : 'bg-pearl/5 text-titanium/30'
+                      isListening ? 'bg-emerald/10 text-emerald border border-emerald/20' : 'bg-pearl/5 text-titanium/30'
                     }`}>
-                      {isListening ? 'LIVE' : 'STANDBY'}
+                      {isListening ? 'LISTENING' : 'STANDBY'}
                     </span>
+                    {isSpeaking && (
+                      <motion.span className="text-[8px] text-ice-blue/60" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 0.8, repeat: Infinity }}>
+                        SPEAKING
+                      </motion.span>
+                    )}
                   </div>
 
                   {isListening && <VoiceWaveform />}
@@ -231,8 +316,8 @@ export default function Home() {
 
                   <div className="flex flex-wrap gap-1.5">
                     <span className="text-[8px] uppercase tracking-wider text-titanium/30 w-full mb-0.5">Quick Commands</span>
-                    {voiceCommands.slice(0, 4).map((cmd) => (
-                      <span key={cmd.description} className="text-[9px] px-2.5 py-1 rounded-full bg-pearl/5 border border-pearl/5 text-titanium/50">
+                    {voiceCommands.slice(0, 6).map((cmd) => (
+                      <span key={cmd.description} className="text-[9px] px-2.5 py-1 rounded-full bg-pearl/5 border border-pearl/5 text-titanium/50 hover:border-ice-blue/10 hover:text-ice-blue/60 transition-colors cursor-default">
                         {cmd.keywords[0]}
                       </span>
                     ))}
@@ -246,7 +331,7 @@ export default function Home() {
         {/* Main Content */}
         <main className="relative z-10 pt-32 pb-24 max-w-7xl mx-auto px-6">
           <AnimatePresence mode="wait">
-            {/* WAR ROOM VIEW */}
+            {/* ===== WAR ROOM VIEW ===== */}
             {view === 'war-room' && (
               <motion.div
                 key="war-room"
@@ -255,111 +340,153 @@ export default function Home() {
                 exit={{ opacity: 0, y: -20 }}
                 className="space-y-8"
               >
-                <div className="flex items-end justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                   <div className="space-y-2">
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass-light text-[10px] tracking-widest text-ice-blue/80 uppercase border border-ice-blue/10">
-                      <Radar size={10} />
-                      <span>Command Center</span>
+                      <Satellite size={10} />
+                      <span>Command Center — Autonomous Operations</span>
                     </div>
-                    <h2 className="text-3xl sm:text-4xl font-light text-pearl/90">War Room</h2>
-                    {!csvData && (
-                      <p className="text-sm text-titanium/50 font-light mt-2">
-                        Upload a dataset to begin analysis, or explore the agent network below.
-                      </p>
-                    )}
+                    <h2 className="text-3xl sm:text-5xl font-light text-pearl/90 tracking-tight">War Room</h2>
+                    <p className="text-sm text-titanium/50 font-light max-w-xl">
+                      Deploy the 4-agent swarm to detect anomalies, model risks, plan mitigations, and execute countermeasures in real time.
+                    </p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {!csvData && (
-                      <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {!csvData ? (
+                      <>
                         <button
                           onClick={() => setView('upload')}
                           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-ice-blue/10 text-ice-blue border border-ice-blue/20 hover:bg-ice-blue/20 transition-all text-xs tracking-wide"
                         >
                           <Upload size={12} />
-                          Upload
+                          Upload Dataset
                         </button>
                         <button
-                          onClick={() => {
-                            fetch('/sample_data.csv')
-                              .then((r) => r.text())
-                              .then((text) => {
-                                const file = new File([text], 'sample_data.csv', { type: 'text/csv' });
-                                parseFile(file);
-                              });
-                          }}
-                          className="px-5 py-2.5 rounded-full border border-pearl/10 text-titanium/50 hover:text-pearl/70 hover:border-pearl/20 transition-all text-xs tracking-wide"
+                          onClick={loadSample}
+                          className="px-5 py-2.5 rounded-full border border-pearl/10 text-titanium/50 hover:text-pearl/70 hover:border-pearl/20 transition-all text-xs tracking-wide inline-flex items-center gap-2"
                         >
-                          Load Sample
+                          <RefreshCw size={11} />
+                          Load Sample Data
                         </button>
-                      </div>
-                    )}
-                    {csvData && !running && (
-                      <button
-                        onClick={() => { resetAgents(); runAnalysis(csvData); }}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald/10 text-emerald border border-emerald/20 hover:bg-emerald/20 transition-all text-xs tracking-wide"
-                      >
-                        <Radar size={12} />
-                        Run Analysis
-                      </button>
-                    )}
-                    {csvData && running && (
-                      <div className="text-[10px] text-ice-blue/60 font-mono flex items-center gap-2">
-                        <motion.div className="w-2 h-2 rounded-full bg-ice-blue" animate={{ scale: [1, 1.5, 1] }} transition={{ duration: 1, repeat: Infinity }} />
-                        Processing...
-                      </div>
+                      </>
+                    ) : (
+                      <>
+                        {!running && (
+                          <button
+                            onClick={deployAnalysis}
+                            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-emerald/15 text-emerald border border-emerald/25 hover:bg-emerald/25 transition-all text-xs tracking-wide shadow-glow-emerald/30"
+                          >
+                            <Radar size={12} />
+                            Run Analysis
+                          </button>
+                        )}
+                        <button
+                          onClick={() => { resetAgents(); resetCSV(); }}
+                          className="px-3 py-2.5 text-[10px] text-titanium/30 hover:text-pearl/50 transition-colors"
+                        >
+                          Clear
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
 
-                <AgentGraph agents={agents} state={state} />
+                <AgentGraph agents={agents} state={state} activeRole={currentPhase || undefined} />
 
+                {/* Agent Communication + Status side by side */}
                 <div className="grid lg:grid-cols-2 gap-6">
-                  <CollapsibleSection title="Agent Communication" icon={<Radio size={14} />} defaultOpen>
-                    <div className="space-y-3 max-h-56 overflow-y-auto scrollbar-hide">
+                  <CollapsibleSection title="Agent Communication" icon={<Radio size={14} />} defaultOpen badge={messages.length}>
+                    <div className="space-y-3 max-h-64 overflow-y-auto scrollbar-hide pr-1">
                       {messages.length === 0 ? (
-                        <p className="text-xs text-titanium/30 italic">Awaiting agent activity. Run an analysis to initiate.</p>
-                      ) : (
-                        messages.map((msg) => (
-                          <div key={msg.id} className="group flex items-start gap-3 text-xs border-l-2 border-ice-blue/15 pl-3 py-1.5 hover:border-ice-blue/30 transition-colors">
-                            <div className="flex flex-col">
-                              <span className="text-[9px] font-mono text-titanium/30 uppercase tracking-wider">
-                                {msg.from} <span className="text-titanium/20">→</span> {msg.to}
-                              </span>
-                              <span className="text-xs text-pearl/60 mt-0.5 leading-relaxed">{msg.content}</span>
-                            </div>
+                        <div className="text-center py-8">
+                          <div className="w-12 h-12 rounded-2xl bg-pearl/5 border border-pearl/5 flex items-center justify-center mx-auto mb-3">
+                            <Radio size={18} className="text-titanium/20" />
                           </div>
-                        ))
+                          <p className="text-xs text-titanium/30 italic">Awaiting agent activity.</p>
+                          <p className="text-[9px] text-titanium/20 mt-1">Load a dataset and deploy analysis to initiate agent swarm.</p>
+                        </div>
+                      ) : (
+                        messages.map((msg, i) => {
+                          const colors: Record<string, string> = { scout: '#64d2ff', strategist: '#fbbf24', tactical: '#ef4444', commander: '#34d399' };
+                          return (
+                            <motion.div
+                              key={msg.id}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: i * 0.05 }}
+                              className="group flex items-start gap-3 text-xs border-l-2 pl-3 py-2 hover:bg-white/[0.02] rounded-r-lg transition-colors"
+                              style={{ borderColor: `${colors[msg.from]}40` }}
+                            >
+                              <div className="flex flex-col w-full">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-[8px] font-mono uppercase tracking-wider" style={{ color: colors[msg.from] }}>
+                                    {msg.from}
+                                  </span>
+                                  <span className="text-titanium/20 text-[8px]">→</span>
+                                  <span className="text-[8px] font-mono text-titanium/30 uppercase">{msg.to === 'all' ? 'All Agents' : msg.to}</span>
+                                  <span className="ml-auto text-[7px] text-titanium/20 font-mono">
+                                    T+{((msg.timestamp - messages[0]?.timestamp || 0) / 1000).toFixed(1)}s
+                                  </span>
+                                </div>
+                                <span className="text-xs text-pearl/60 leading-relaxed">{msg.content}</span>
+                              </div>
+                            </motion.div>
+                          );
+                        })
                       )}
                     </div>
                   </CollapsibleSection>
 
                   <CollapsibleSection title="Agent Status" icon={<Terminal size={14} />} defaultOpen>
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {[
-                        { label: 'Scout', message: state.scout.message, badge: state.scout.anomalies.length > 0 ? `${state.scout.anomalies.length} anomalies` : null, status: state.scout.scanning ? 'scanning' : state.scout.anomalies.length > 0 ? 'complete' : 'idle' },
-                        { label: 'Strategist', message: state.strategist.message, badge: state.strategist.scenarios.length > 0 ? `${state.strategist.scenarios.length} scenarios` : null, status: state.strategist.analyzing ? 'scanning' : state.strategist.scenarios.length > 0 ? 'complete' : 'idle' },
-                        { label: 'Tactical', message: state.tactical.message, badge: state.tactical.actions.length > 0 ? `${state.tactical.actions.length} actions` : null, status: state.tactical.planning ? 'scanning' : state.tactical.actions.length > 0 ? 'complete' : 'idle' },
-                        { label: 'Commander', message: state.commander.decision === 'approved' ? 'All mitigations authorized' : state.commander.feedback, badge: null, status: state.commander.decision === 'approved' ? 'complete' : 'idle' },
-                      ].map((item) => (
-                        <div key={item.label} className="flex items-center gap-4 py-2 border-b border-pearl/[0.03] last:border-0">
-                          <span className={`w-2 h-2 rounded-full shrink-0 ${
-                            item.status === 'complete' ? 'bg-emerald shadow-glow-emerald' :
-                            item.status === 'scanning' ? 'bg-ice-blue animate-pulse' : 'bg-titanium/20'
-                          }`} />
-                          <span className="text-xs text-titanium/40 w-20 shrink-0 font-mono">{item.label}</span>
-                          <span className="text-xs text-pearl/50 truncate">{item.message}</span>
-                          {item.badge && (
-                            <span className="text-[9px] text-ice-blue/60 shrink-0">{item.badge}</span>
-                          )}
-                        </div>
-                      ))}
+                        { label: 'Scout', icon: <Radar size={12} />, role: 'scout', message: state.scout.message, badge: state.scout.anomalies.length > 0 ? `${state.scout.anomalies.length} anomalies` : null, status: state.scout.scanning ? 'scanning' : state.scout.anomalies.length > 0 ? 'complete' : 'idle' },
+                        { label: 'Strategist', icon: <Brain size={12} />, role: 'strategist', message: state.strategist.message, badge: state.strategist.scenarios.length > 0 ? `${state.strategist.scenarios.length} scenarios` : null, status: state.strategist.analyzing ? 'scanning' : state.strategist.scenarios.length > 0 ? 'complete' : 'idle' },
+                        { label: 'Tactical', icon: <Target size={12} />, role: 'tactical', message: state.tactical.message, badge: state.tactical.actions.length > 0 ? `${state.tactical.actions.length} actions` : null, status: state.tactical.planning ? 'scanning' : state.tactical.actions.length > 0 ? 'complete' : 'idle' },
+                        { label: 'Commander', icon: <Crown size={12} />, role: 'commander', message: state.commander.decision === 'approved' ? 'Mission approved — all systems go' : state.commander.feedback, badge: null, status: state.commander.decision === 'approved' ? 'complete' : 'idle' },
+                      ].map((item) => {
+                        const agent = agents.find(a => a.role === item.role);
+                        return (
+                          <div key={item.label} className="flex items-center gap-4 py-2.5 border-b border-pearl/[0.03] last:border-0">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                              item.status === 'complete' ? 'bg-emerald/10 text-emerald' :
+                              item.status === 'scanning' ? 'bg-ice-blue/10 text-ice-blue' : 'bg-pearl/5 text-titanium/30'
+                            }`}>
+                              {item.icon}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs font-medium ${item.status === 'complete' ? 'text-emerald/80' : item.status === 'scanning' ? 'text-ice-blue/80' : 'text-titanium/40'}`}>
+                                  {item.label}
+                                </span>
+                                <motion.span
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    item.status === 'complete' ? 'bg-emerald shadow-glow-emerald' :
+                                    item.status === 'scanning' ? 'bg-ice-blue' : 'bg-titanium/20'
+                                  }`}
+                                  animate={item.status === 'scanning' ? { scale: [1, 1.5, 1] } : {}}
+                                  transition={{ duration: 1.5, repeat: item.status === 'scanning' ? Infinity : 0 }}
+                                />
+                                <span className="text-[8px] text-titanium/20 font-mono ml-auto">{item.status.toUpperCase()}</span>
+                              </div>
+                              <p className="text-[10px] text-titanium/40 mt-0.5 truncate">{item.message}</p>
+                            </div>
+                            {item.badge && (
+                              <span className="text-[9px] px-2 py-0.5 rounded-full bg-ice-blue/10 text-ice-blue/70 shrink-0 font-mono">{item.badge}</span>
+                            )}
+                            {agent && agent.confidence < 100 && item.status !== 'idle' && (
+                              <span className="text-[8px] text-titanium/20 font-mono shrink-0">{agent.confidence}%</span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </CollapsibleSection>
                 </div>
               </motion.div>
             )}
 
-            {/* INTELLIGENCE / UPLOAD VIEW */}
+            {/* ===== INTELLIGENCE / UPLOAD VIEW ===== */}
             {view === 'upload' && (
               <motion.div
                 key="upload"
@@ -373,11 +500,15 @@ export default function Home() {
                     <Globe size={10} />
                     <span>Signal Intelligence — Data Ingestion</span>
                   </div>
-                  <h2 className="text-4xl sm:text-5xl font-light text-pearl/90">Import Intelligence</h2>
+                  <h2 className="text-4xl sm:text-5xl font-light text-pearl/90 tracking-tight">Import Intelligence</h2>
                   <p className="text-sm text-titanium/50 max-w-lg mx-auto leading-relaxed">
-                    Upload a CSV dataset containing operational data. Hyperion&apos;s Scout agent will
-                    automatically scan for statistical anomalies and trigger the analysis pipeline.
+                    Upload a CSV dataset containing operational telemetry. Hyperion&apos;s Scout agent will
+                    automatically scan for statistical anomalies and trigger the multi-agent analysis pipeline.
                   </p>
+                  <button onClick={loadSample} className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-pearl/10 text-titanium/50 hover:text-pearl/70 hover:border-pearl/20 transition-all text-xs tracking-wide">
+                    <RefreshCw size={10} />
+                    Use sample dataset instead
+                  </button>
                 </div>
 
                 <DataUploader onFileLoaded={parseFile} parsing={parsing} error={error} csvData={csvData} />
@@ -389,8 +520,21 @@ export default function Home() {
                     className="glass-panel rounded-2xl p-6 space-y-4"
                   >
                     <div className="flex items-center justify-between">
-                      <h3 className="text-xs font-medium text-pearl/60 uppercase tracking-wider">Dataset Preview</h3>
-                      <span className="text-[9px] text-titanium/30 font-mono">{csvData.columns.length} columns · {csvData.rowCount} records</span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-ice-blue/10 flex items-center justify-center">
+                          <BarChart3 size={14} className="text-ice-blue" />
+                        </div>
+                        <h3 className="text-sm font-medium text-pearl/70">Dataset Preview</h3>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[9px] text-titanium/30 font-mono">{csvData.columns.length} columns · {csvData.rowCount} records</span>
+                        <button
+                          onClick={() => { resetAgents(); resetCSV(); }}
+                          className="text-[9px] text-titanium/30 hover:text-crimson/60 transition-colors"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                     <div className="overflow-x-auto scrollbar-hide rounded-xl border border-pearl/5">
                       <table className="w-full text-xs">
@@ -426,7 +570,7 @@ export default function Home() {
               </motion.div>
             )}
 
-            {/* THREAT DASHBOARD VIEW */}
+            {/* ===== THREAT DASHBOARD VIEW ===== */}
             {view === 'dashboard' && (
               <motion.div
                 key="dashboard"
@@ -437,17 +581,29 @@ export default function Home() {
               >
                 <div className="text-center space-y-4">
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass-light text-[10px] tracking-widest text-amber/80 uppercase border border-amber/10">
-                    <Zap size={10} />
-                    <span>Anomaly Detection — Real-Time Analysis</span>
+                    <AlertTriangle size={10} />
+                    <span>Threat Analysis — Real-Time Assessment</span>
                   </div>
-                  <h2 className="text-4xl sm:text-5xl font-light text-pearl/90">Threat Dashboard</h2>
+                  <h2 className="text-4xl sm:text-5xl font-light text-pearl/90 tracking-tight">Threat Dashboard</h2>
                   <p className="text-sm text-titanium/50 max-w-lg mx-auto leading-relaxed">
                     Detected anomalies, risk scenarios, and autonomous mitigation actions
                     generated by the Hyperion agent swarm.
                   </p>
+                  {!csvData && (
+                    <div className="flex items-center justify-center gap-3">
+                      <button onClick={loadSample} className="px-4 py-2 rounded-full border border-pearl/10 text-titanium/50 hover:text-pearl/70 hover:border-pearl/20 transition-all text-xs tracking-wide inline-flex items-center gap-2">
+                        <RefreshCw size={10} />
+                        Load Sample Data
+                      </button>
+                      <button onClick={() => { setView('upload'); }} className="px-4 py-2 rounded-full bg-ice-blue/10 text-ice-blue border border-ice-blue/20 hover:bg-ice-blue/20 transition-all text-xs tracking-wide inline-flex items-center gap-2">
+                        <Upload size={10} />
+                        Upload Dataset
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {state.scout.anomalies.length === 0 ? (
+                {state.scout.anomalies.length === 0 && !running ? (
                   <div className="glass-panel rounded-3xl p-16 text-center">
                     <div className="w-16 h-16 rounded-2xl bg-pearl/5 border border-pearl/5 flex items-center justify-center mx-auto mb-4">
                       <Shield size={24} className="text-titanium/30" />
@@ -457,29 +613,38 @@ export default function Home() {
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    <div className="grid sm:grid-cols-3 gap-4">
+                    {/* Live Stats */}
+                    <div className="grid sm:grid-cols-4 gap-4">
                       {[
-                        { label: 'Active Anomalies', value: state.scout.anomalies.length, color: 'text-crimson', bg: 'bg-crimson/10' },
-                        { label: 'Risk Scenarios', value: state.strategist.scenarios.length, color: 'text-amber', bg: 'bg-amber/10' },
-                        { label: 'Mitigation Actions', value: state.tactical.actions.length, color: 'text-ice-blue', bg: 'bg-ice-blue/10' },
+                        { label: 'Active Anomalies', value: state.scout.anomalies.length, color: 'text-crimson', bg: 'bg-crimson/10', icon: <AlertTriangle size={14} /> },
+                        { label: 'Risk Scenarios', value: state.strategist.scenarios.length, color: 'text-amber', bg: 'bg-amber/10', icon: <Activity size={14} /> },
+                        { label: 'Mitigation Actions', value: state.tactical.actions.length, color: 'text-ice-blue', bg: 'bg-ice-blue/10', icon: <Target size={14} /> },
+                        { label: 'Agent Status', value: `${agents.filter(a => a.status !== 'idle').length}/4`, color: 'text-emerald', bg: 'bg-emerald/10', icon: <Layers size={14} /> },
                       ].map((stat) => (
                         <div key={stat.label} className="glass-panel rounded-2xl p-5 text-center">
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center mx-auto mb-3 ${stat.bg} ${stat.color}`}>
+                            {stat.icon}
+                          </div>
                           <div className={`text-3xl font-light ${stat.color}`}>{stat.value}</div>
                           <div className="text-xs text-titanium/50 mt-1">{stat.label}</div>
                         </div>
                       ))}
                     </div>
 
-                    <CollapsibleSection title={`Detected Anomalies (${state.scout.anomalies.length})`} icon={<Zap size={14} />} defaultOpen>
-                      <div className="space-y-2">
+                    {/* Anomalies */}
+                    <CollapsibleSection title="Detected Anomalies" icon={<Zap size={14} />} defaultOpen badge={state.scout.anomalies.length}>
+                      <div className="space-y-3">
                         {state.scout.anomalies.map((a: Anomaly) => (
-                          <div key={a.id} className="group flex items-start gap-4 p-4 rounded-xl bg-pearl/[0.02] border border-pearl/5 hover:bg-pearl/[0.04] transition-colors">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold ${
-                              a.severity === 'critical' ? 'bg-crimson/10 text-crimson' :
-                              a.severity === 'high' ? 'bg-amber/10 text-amber' :
-                              'bg-titanium/10 text-titanium'
+                          <motion.div
+                            key={a.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="group flex items-start gap-4 p-4 rounded-xl bg-pearl/[0.02] border border-pearl/5 hover:bg-pearl/[0.04] hover:border-pearl/10 transition-all"
+                          >
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold bg-gradient-to-br ${severityGradients[a.severity]} ${
+                              a.severity === 'critical' ? 'text-crimson' : a.severity === 'high' ? 'text-amber' : 'text-titanium'
                             }`}>
-                              {a.severity === 'critical' ? 'CR' : a.severity === 'high' ? 'HI' : 'LW'}
+                              {a.severity === 'critical' ? 'CR' : a.severity === 'high' ? 'HI' : a.severity === 'moderate' ? 'MD' : 'LW'}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
@@ -488,23 +653,26 @@ export default function Home() {
                               </div>
                               <p className="text-xs text-titanium/50 leading-relaxed">{a.description}</p>
                               <div className="flex items-center gap-3 mt-1.5 text-[9px] text-titanium/30 font-mono">
-                                <span>{a.region}</span>
+                                <span className="text-titanium/40">{a.region}</span>
                                 <span className="w-1 h-1 rounded-full bg-pearl/10" />
                                 <span>{a.timestamp}</span>
                                 <span className="w-1 h-1 rounded-full bg-pearl/10" />
-                                <span className={a.trend === 'up' ? 'text-crimson/50' : 'text-emerald/50'}>{a.value}</span>
+                                <span className={a.trend === 'up' ? 'text-crimson/50' : a.trend === 'down' ? 'text-emerald/50' : 'text-titanium/30'}>
+                                  {a.value} {a.trend === 'up' ? '↑' : a.trend === 'down' ? '↓' : '→'}
+                                </span>
                               </div>
                             </div>
-                          </div>
+                          </motion.div>
                         ))}
                       </div>
                     </CollapsibleSection>
 
+                    {/* Scenarios */}
                     {state.strategist.scenarios.length > 0 && (
-                      <CollapsibleSection title={`Risk Scenarios (${state.strategist.scenarios.length})`} icon={<Activity size={14} />}>
+                      <CollapsibleSection title="Risk Scenarios" icon={<Activity size={14} />} badge={state.strategist.scenarios.length}>
                         <div className="space-y-3">
                           {state.strategist.scenarios.map((s: AgentScenario) => (
-                            <div key={s.id} className="p-4 rounded-xl bg-pearl/[0.02] border border-pearl/5">
+                            <div key={s.id} className="p-4 rounded-xl bg-pearl/[0.02] border border-pearl/5 hover:bg-pearl/[0.04] transition-colors">
                               <div className="flex items-center justify-between mb-2">
                                 <span className="text-xs font-medium text-pearl/70">{s.title}</span>
                                 <span className="text-[10px] font-mono text-amber/80">{s.probability}% probability</span>
@@ -512,11 +680,14 @@ export default function Home() {
                               <p className="text-xs text-titanium/50 leading-relaxed mb-3">{s.description}</p>
                               <div className="flex items-center gap-4 text-[9px] text-titanium/30 font-mono">
                                 <span>Impact: {s.impact}</span>
-                                <span>Cost: ${s.cost.toLocaleString()}</span>
+                                <span className="text-crimson/50">Cost: ${s.cost.toLocaleString()}</span>
                                 <span>Timeline: {s.timeline}</span>
                               </div>
                               <div className="mt-2 h-1 rounded-full bg-pearl/5 overflow-hidden">
-                                <div className="h-full rounded-full bg-gradient-to-r from-amber/20 to-amber/40" style={{ width: `${s.probability}%` }} />
+                                <div
+                                  className="h-full rounded-full bg-gradient-to-r from-amber/20 to-amber/40 transition-all duration-500"
+                                  style={{ width: `${s.probability}%` }}
+                                />
                               </div>
                             </div>
                           ))}
@@ -524,11 +695,12 @@ export default function Home() {
                       </CollapsibleSection>
                     )}
 
+                    {/* Actions */}
                     {state.tactical.actions.length > 0 && (
-                      <CollapsibleSection title={`Mitigation Actions (${state.tactical.actions.length})`} icon={<Shield size={14} />}>
+                      <CollapsibleSection title="Mitigation Actions" icon={<Shield size={14} />} badge={state.tactical.actions.length}>
                         <div className="space-y-2">
                           {state.tactical.actions.map((a: TacticalAction) => (
-                            <div key={a.id} className="flex items-center gap-4 p-4 rounded-xl bg-pearl/[0.02] border border-pearl/5">
+                            <div key={a.id} className="flex items-center gap-4 p-4 rounded-xl bg-pearl/[0.02] border border-pearl/5 hover:bg-pearl/[0.04] transition-colors">
                               <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
                                 a.status === 'completed' ? 'bg-emerald shadow-glow-emerald' :
                                 a.status === 'executing' ? 'bg-ice-blue animate-pulse' : 'bg-titanium/20'
@@ -563,36 +735,56 @@ export default function Home() {
             initial={{ y: 60, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
           >
-            <div className="glass-panel rounded-2xl px-8 py-4 flex items-center gap-4 shadow-layered">
+            <div className="glass-panel rounded-2xl px-8 py-4 flex items-center gap-4 shadow-layered border-emerald/10">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald animate-pulse shadow-glow-emerald" />
               <div>
-                <span className="text-sm text-emerald/90 font-light">Analysis Complete</span>
-                <span className="text-xs text-titanium/40 ml-3">Autonomous mitigation protocols active</span>
+                <span className="text-sm text-emerald/90 font-light">Mission Complete</span>
+                <span className="text-xs text-titanium/40 ml-3">
+                  {state.scout.anomalies.length} anomalies resolved · {state.tactical.actions.length} mitigations deployed
+                </span>
               </div>
-              <button
-                onClick={() => { resetAgents(); resetCSV(); }}
-                className="text-xs text-titanium/30 hover:text-pearl/60 ml-6 transition-colors"
-              >
-                Clear Session
-              </button>
+              <div className="flex items-center gap-3 ml-6">
+                <button
+                  onClick={() => { setView('dashboard'); }}
+                  className="text-[10px] text-ice-blue/50 hover:text-ice-blue/80 transition-colors"
+                >
+                  View Report
+                </button>
+                <button
+                  onClick={() => { resetAgents(); resetCSV(); }}
+                  className="text-[10px] text-titanium/30 hover:text-pearl/60 transition-colors"
+                >
+                  New Mission
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
 
         {/* Status bar */}
         <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-pearl/[0.03] bg-obsidian/80 backdrop-blur-xl">
-          <div className="max-w-7xl mx-auto px-6 py-2 flex items-center justify-between">
+          <div className="max-w-7xl mx-auto px-6 py-2.5 flex items-center justify-between">
             <div className="flex items-center gap-4 text-[9px] text-titanium/30 font-mono">
               <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald/60" />
+                <motion.span
+                  className="w-1.5 h-1.5 rounded-full bg-emerald/60"
+                  animate={{ opacity: [0.4, 1, 0.4] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                />
                 System Online
               </span>
               <span>Hyperion Core v2.1</span>
               <span className="hidden sm:inline">• {csvData ? `${csvData.rowCount} records loaded` : 'No dataset'}</span>
+              {running && <span className="text-ice-blue/60">• Pipeline active</span>}
             </div>
             <div className="flex items-center gap-4 text-[9px] text-titanium/20 font-mono">
-              <span>{isSupported ? 'Voice API: Ready' : 'Voice API: Unavailable'}</span>
+              <span>{isSupported ? 'Voice API connected' : 'Voice API unavailable'}</span>
               <span className="hidden sm:inline">Agents: {agents.filter(a => a.status !== 'idle').length}/4 active</span>
+              {running && (
+                <motion.span className="text-ice-blue/40" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.5, repeat: Infinity }}>
+                  ● ANALYZING
+                </motion.span>
+              )}
             </div>
           </div>
         </div>

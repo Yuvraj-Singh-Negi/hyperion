@@ -31,7 +31,7 @@ export interface Anomaly {
 export interface AgentMessage {
   id: string;
   from: AgentRole;
-  to: AgentRole;
+  to: AgentRole | 'all';
   content: string;
   timestamp: number;
   type: 'alert' | 'analysis' | 'plan' | 'approval' | 'report';

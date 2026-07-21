@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { speakText } from '@/lib/apiService';
 
 interface VoiceCommand {
   keywords: string[];
   action: () => void;
   description: string;
+  response?: string;
 }
 
 interface VoiceCommandsReturn {
@@ -15,6 +17,8 @@ interface VoiceCommandsReturn {
   toggleListening: () => void;
   lastCommand: string | null;
   transcriptHistory: string[];
+  speakResponse: (text: string) => Promise<void>;
+  isSpeaking: boolean;
 }
 
 export function useVoiceCommands(commands: VoiceCommand[]): VoiceCommandsReturn {
@@ -22,6 +26,7 @@ export function useVoiceCommands(commands: VoiceCommand[]): VoiceCommandsReturn 
   const [transcript, setTranscript] = useState('');
   const [lastCommand, setLastCommand] = useState<string | null>(null);
   const [transcriptHistory, setTranscriptHistory] = useState<string[]>([]);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const commandsRef = useRef(commands);
   const isSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
@@ -45,14 +50,18 @@ export function useVoiceCommands(commands: VoiceCommand[]): VoiceCommandsReturn 
       setTranscript(text);
 
       if (last.isFinal) {
-        setTranscriptHistory((prev) => [...prev.slice(-9), text]);
+        setTranscriptHistory((prev) => [...prev.slice(-19), text]);
 
+        // Check for exact keyword matches first
         for (const cmd of commandsRef.current) {
           const matched = cmd.keywords.some((kw) => text.includes(kw.toLowerCase()));
           if (matched) {
             setLastCommand(cmd.description);
             cmd.action();
-            break;
+            if (cmd.response) {
+              speakText(cmd.response).then(() => {}).catch(() => {});
+            }
+            return;
           }
         }
       }
@@ -90,5 +99,11 @@ export function useVoiceCommands(commands: VoiceCommand[]): VoiceCommandsReturn 
     }
   }, [isListening]);
 
-  return { isListening, transcript, isSupported, toggleListening, lastCommand, transcriptHistory };
+  const speakResponse = useCallback(async (text: string) => {
+    setIsSpeaking(true);
+    await speakText(text);
+    setIsSpeaking(false);
+  }, []);
+
+  return { isListening, transcript, isSupported, toggleListening, lastCommand, transcriptHistory, speakResponse, isSpeaking };
 }
