@@ -1,18 +1,20 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Activity, Shield, ChevronDown, Terminal, Zap, Radio, Mic, MicOff, Command, ArrowRight, Globe, Satellite, Radar, Brain, Target, Crown, AlertTriangle, BarChart3, Layers, RefreshCw } from 'lucide-react';
+import { Upload, Activity, Shield, ChevronDown, Terminal, Zap, Radio, Mic, MicOff, Command, ArrowRight, Globe, Satellite, Radar, Brain, Target, Crown, AlertTriangle, BarChart3, Layers, RefreshCw, Download, Send, Clock } from 'lucide-react';
 import Image from 'next/image';
 import SplashScreen from '@/components/SplashScreen';
 import DataUploader from '@/components/DataUploader';
 import AgentGraph from '@/components/AgentGraph';
 import ParticleField from '@/components/ParticleField';
 import ScanningLine from '@/components/ScanningLine';
+import NewsFeed from '@/components/NewsFeed';
+import EmergencyBanner from '@/components/EmergencyBanner';
 import { useCSVParser } from '@/hooks/useCSVParser';
 import { useAgentSystem } from '@/hooks/useAgentSystem';
 import { useVoiceCommands } from '@/hooks/useVoiceCommands';
-import { speakText } from '@/lib/apiService';
+import { speakText, sendWebhookAlert } from '@/lib/apiService';
 import { Anomaly, TacticalAction, AgentScenario } from '@/types';
 
 const severityColors: Record<string, string> = {
@@ -28,6 +30,32 @@ const severityGradients: Record<string, string> = {
   high: 'from-crimson/40 to-crimson/10',
   critical: 'from-crimson/60 to-crimson/20',
 };
+
+function AnimatedCounter({ value, color }: { value: number; color: string }) {
+  const [display, setDisplay] = useState(0);
+  const prevRef = useRef(0);
+
+  useEffect(() => {
+    const start = prevRef.current;
+    const end = value;
+    if (start === end) return;
+    const duration = 800;
+    const startTime = performance.now();
+    let raf: number;
+    function tick(now: number) {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(start + (end - start) * eased));
+      if (progress < 1) raf = requestAnimationFrame(tick);
+      else prevRef.current = end;
+    }
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+
+  return <span className={`text-3xl font-light ${color}`}>{display}</span>;
+}
 
 function CollapsibleSection({ title, icon, defaultOpen, badge, children }: { title: string; icon: React.ReactNode; defaultOpen?: boolean; badge?: string | number; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen ?? false);
@@ -153,6 +181,9 @@ export default function Home() {
 
         {/* Scanning Line */}
         {running && <ScanningLine speed={3} />}
+
+        {/* Emergency Alert Banner */}
+        <EmergencyBanner key={`alert-${state.scout.anomalies.length}-${completed}`} anomalies={state.scout.anomalies} />
 
         {/* Hero Background — Earth from orbit */}
         <div className="fixed inset-0 z-[2]">
@@ -393,6 +424,9 @@ export default function Home() {
 
                 <AgentGraph agents={agents} state={state} activeRole={currentPhase || undefined} />
 
+                {/* Live Intelligence Feed */}
+                {csvData && <NewsFeed />}
+
                 {/* Agent Communication + Status side by side */}
                 <div className="grid lg:grid-cols-2 gap-6">
                   <CollapsibleSection title="Agent Communication" icon={<Radio size={14} />} defaultOpen badge={messages.length}>
@@ -616,22 +650,77 @@ export default function Home() {
                     {/* Live Stats */}
                     <div className="grid sm:grid-cols-4 gap-4">
                       {[
-                        { label: 'Active Anomalies', value: state.scout.anomalies.length, color: 'text-crimson', bg: 'bg-crimson/10', icon: <AlertTriangle size={14} /> },
-                        { label: 'Risk Scenarios', value: state.strategist.scenarios.length, color: 'text-amber', bg: 'bg-amber/10', icon: <Activity size={14} /> },
-                        { label: 'Mitigation Actions', value: state.tactical.actions.length, color: 'text-ice-blue', bg: 'bg-ice-blue/10', icon: <Target size={14} /> },
-                        { label: 'Agent Status', value: `${agents.filter(a => a.status !== 'idle').length}/4`, color: 'text-emerald', bg: 'bg-emerald/10', icon: <Layers size={14} /> },
+                        { label: 'Active Anomalies', value: state.scout.anomalies.length, color: 'text-crimson', bg: 'bg-crimson/10', icon: <AlertTriangle size={14} />, numeric: true },
+                        { label: 'Risk Scenarios', value: state.strategist.scenarios.length, color: 'text-amber', bg: 'bg-amber/10', icon: <Activity size={14} />, numeric: true },
+                        { label: 'Mitigation Actions', value: state.tactical.actions.length, color: 'text-ice-blue', bg: 'bg-ice-blue/10', icon: <Target size={14} />, numeric: true },
+                        { label: 'Agent Status', value: `${agents.filter(a => a.status !== 'idle').length}/4`, color: 'text-emerald', bg: 'bg-emerald/10', icon: <Layers size={14} />, numeric: false },
                       ].map((stat) => (
                         <div key={stat.label} className="glass-panel rounded-2xl p-5 text-center">
                           <div className={`w-8 h-8 rounded-xl flex items-center justify-center mx-auto mb-3 ${stat.bg} ${stat.color}`}>
                             {stat.icon}
                           </div>
-                          <div className={`text-3xl font-light ${stat.color}`}>{stat.value}</div>
+                          {stat.numeric ? (
+                            <AnimatedCounter value={stat.value as number} color={stat.color} />
+                          ) : (
+                            <span className={`text-3xl font-light ${stat.color}`}>{stat.value}</span>
+                          )}
                           <div className="text-xs text-titanium/50 mt-1">{stat.label}</div>
                         </div>
                       ))}
                     </div>
 
-                    {/* Anomalies */}
+                    {/* Anomaly Timeline */}
+                    {state.scout.anomalies.length > 0 && (
+                      <div className="glass-panel rounded-2xl p-5">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Clock size={12} className="text-titanium/40" />
+                          <span className="text-[10px] uppercase tracking-widest text-titanium/40 font-mono">Anomaly Timeline</span>
+                          <span className="text-[8px] text-titanium/20 font-mono ml-auto">{state.scout.anomalies.length} events</span>
+                        </div>
+                        <div className="relative">
+                          <div className="absolute left-[11px] top-3 bottom-3 w-px bg-pearl/5" />
+                          <div className="space-y-3">
+                            {state.scout.anomalies.map((a: Anomaly, i: number) => (
+                              <motion.div
+                                key={a.id}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: i * 0.05 }}
+                                className="flex items-start gap-3"
+                              >
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 relative z-10 ${
+                                  a.severity === 'critical' ? 'bg-crimson/20 border border-crimson/30' :
+                                  a.severity === 'high' ? 'bg-amber/15 border border-amber/25' :
+                                  a.severity === 'moderate' ? 'bg-amber/10 border border-amber/15' :
+                                  'bg-titanium/10 border border-titanium/15'
+                                }`}>
+                                  <div className={`w-1.5 h-1.5 rounded-full ${
+                                    a.severity === 'critical' ? 'bg-crimson' :
+                                    a.severity === 'high' ? 'bg-amber' :
+                                    'bg-titanium/40'
+                                  }`} />
+                                </div>
+                                <div className="flex-1 min-w-0 pb-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-medium text-pearl/70">{a.title}</span>
+                                    <span className={`text-[7px] uppercase tracking-wider px-1 py-0.5 rounded-full border ${severityColors[a.severity]}`}>{a.severity}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-0.5 text-[8px] text-titanium/30 font-mono">
+                                    <span>{a.region}</span>
+                                    <span className="w-1 h-1 rounded-full bg-pearl/10" />
+                                    <span className={a.trend === 'up' ? 'text-crimson/50' : a.trend === 'down' ? 'text-emerald/50' : 'text-titanium/20'}>
+                                      {a.value} {a.trend === 'up' ? '↑' : a.trend === 'down' ? '↓' : '→'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Anomalies Detail */}
                     <CollapsibleSection title="Detected Anomalies" icon={<Zap size={14} />} defaultOpen badge={state.scout.anomalies.length}>
                       <div className="space-y-3">
                         {state.scout.anomalies.map((a: Anomaly) => (
@@ -740,15 +829,48 @@ export default function Home() {
               <div>
                 <span className="text-sm text-emerald/90 font-light">Mission Complete</span>
                 <span className="text-xs text-titanium/40 ml-3">
-                  {state.scout.anomalies.length} anomalies resolved · {state.tactical.actions.length} mitigations deployed
+                  {state.scout.anomalies.length} threats resolved · {state.tactical.actions.length} mitigations deployed
                 </span>
               </div>
               <div className="flex items-center gap-3 ml-6">
                 <button
-                  onClick={() => { setView('dashboard'); }}
-                  className="text-[10px] text-ice-blue/50 hover:text-ice-blue/80 transition-colors"
+                  onClick={() => {
+                    const report = {
+                      timestamp: new Date().toISOString(),
+                      anomalies: state.scout.anomalies,
+                      scenarios: state.strategist.scenarios,
+                      actions: state.tactical.actions,
+                      commander: state.commander,
+                    };
+                    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `hyperion-report-${Date.now()}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="text-[10px] text-ice-blue/50 hover:text-ice-blue/80 transition-colors inline-flex items-center gap-1"
                 >
-                  View Report
+                  <Download size={10} /> Report
+                </button>
+                <button
+                  onClick={() => {
+                    sendWebhookAlert(
+                      `[HYPERION ALERT] Mission complete: ${state.scout.anomalies.length} anomalies resolved, ${state.tactical.actions.length} mitigations deployed. Total exposure: $${state.strategist.scenarios.reduce((s, sc) => s + sc.cost, 0).toLocaleString()}.`,
+                    ).then((ok) => {
+                      if (ok) speakText('Alert sent successfully. Decision makers notified.').catch(() => {});
+                    });
+                  }}
+                  className="text-[10px] text-emerald/50 hover:text-emerald/80 transition-colors inline-flex items-center gap-1"
+                >
+                  <Send size={10} /> Send Alert
+                </button>
+                <button
+                  onClick={() => { setView('dashboard'); }}
+                  className="text-[10px] text-titanium/30 hover:text-pearl/60 transition-colors"
+                >
+                  Full Report
                 </button>
                 <button
                   onClick={() => { resetAgents(); resetCSV(); }}
