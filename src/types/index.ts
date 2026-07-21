@@ -75,6 +75,43 @@ export interface ParsedAnomaly {
   rowIndex: number;
 }
 
+// ─── Orchestration Types ───
+
+export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+export type StepStatus = 'pending' | 'running' | 'completed' | 'failed';
+export type OrchestrationStatus = 'draft' | 'planning' | 'executing' | 'completed' | 'failed';
+
+export interface SupportTicket {
+  id: string;
+  subject: string;
+  description: string;
+  customer: { name: string; email: string; id: string };
+  priority: TicketPriority;
+  category: string;
+  status: TicketStatus;
+  createdAt: string;
+}
+
+export interface OrchestrationStep {
+  id: string;
+  agent: string;
+  action: string;
+  input: string;
+  output: string;
+  status: StepStatus;
+  duration: number;
+}
+
+export interface OrchestrationPlan {
+  ticketId: string;
+  steps: OrchestrationStep[];
+  status: OrchestrationStatus;
+  summary: string;
+  resolution?: string;
+  confidence: number;
+}
+
 export interface AgentState {
   scout: {
     anomalies: Anomaly[];

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Activity, Shield, ChevronDown, Terminal, Zap, Radio, Mic, MicOff, Command, ArrowRight, Globe, Satellite, Radar, Brain, Target, Crown, AlertTriangle, BarChart3, Layers, RefreshCw, Download, Send, Clock } from 'lucide-react';
+import { Upload, Activity, Shield, ChevronDown, Terminal, Zap, Radio, Mic, MicOff, Command, ArrowRight, Globe, Satellite, Radar, Brain, Target, Crown, AlertTriangle, BarChart3, Layers, RefreshCw, Download, Send, Clock, Headset } from 'lucide-react';
 import Image from 'next/image';
 import SplashScreen from '@/components/SplashScreen';
 import DataUploader from '@/components/DataUploader';
@@ -11,7 +11,9 @@ import ParticleField from '@/components/ParticleField';
 import ScanningLine from '@/components/ScanningLine';
 import NewsFeed from '@/components/NewsFeed';
 import EmergencyBanner from '@/components/EmergencyBanner';
+import TicketPanel from '@/components/TicketPanel';
 import { useCSVParser } from '@/hooks/useCSVParser';
+import { useOrchestrator } from '@/hooks/useOrchestrator';
 import { useAgentSystem } from '@/hooks/useAgentSystem';
 import { useVoiceCommands } from '@/hooks/useVoiceCommands';
 import { speakText, sendWebhookAlert } from '@/lib/apiService';
@@ -119,6 +121,7 @@ export default function Home() {
 
   const { csvData, parsing, error, parseFile, reset: resetCSV } = useCSVParser();
   const { agents, state, messages, running, completed, currentPhase, runAnalysis, reset: resetAgents } = useAgentSystem();
+  const { ticket: orchTicket, plan: orchPlan, currentStepIndex: orchStep, running: orchRunning, completed: orchCompleted, resolution: orchResolution, submitTicket, loadDemo: loadOrchDemo, reset: resetOrchestrator } = useOrchestrator();
 
   const scrollToSection = useCallback((id: string) => {
     const el = document.getElementById(id);
@@ -150,6 +153,7 @@ export default function Home() {
     { keywords: ['upload data', 'load data', 'import'], action: () => { setView('upload'); scrollToSection('command-center'); }, description: 'Upload Data', response: 'Opening intelligence upload interface.' },
     { keywords: ['start analysis', 'analyze', 'run', 'execute','deploy analysis'], action: () => { deployAnalysis(); }, description: 'Start Analysis', response: 'Analysis initiated. Agent swarm deploying.' },
     { keywords: ['reset', 'clear', 'stop', 'stand down'], action: () => { resetAgents(); resetCSV(); speakText('System reset complete. Standing by.').catch(() => {}); }, description: 'Reset System', response: 'All systems reset. Ready for new mission.' },
+    { keywords: ['open tickets', 'ticket', 'orchestrate', 'support'], action: () => { setView('orchestrate'); }, description: 'Open Ticket Orchestrator', response: 'Opening ticket resolution orchestrator.' },
     { keywords: ['load sample', 'sample data', 'demo mode'], action: () => { loadSample(); }, description: 'Load Sample Data', response: 'Loading sample intelligence dataset.' },
     { keywords: ['isolate', 'quarantine', 'lock down'], action: () => { setView('dashboard'); }, description: 'Isolate Anomalies', response: 'Isolating threat nodes. Quarantine protocols active.' },
     { keywords: ['status report', 'status', 'report', 'sitrep'], action: () => {
@@ -256,6 +260,7 @@ export default function Home() {
                   { key: 'war-room', label: 'War Room', icon: <Satellite size={10} /> },
                   { key: 'upload', label: 'Intelligence', icon: <Globe size={10} /> },
                   { key: 'dashboard', label: 'Threats', icon: <AlertTriangle size={10} /> },
+                  { key: 'orchestrate', label: 'Tickets', icon: <Headset size={10} /> },
                 ].map((item) => (
                   <button
                     key={item.key}
@@ -812,6 +817,39 @@ export default function Home() {
                     )}
                   </div>
                 )}
+              </motion.div>
+            )}
+
+            {/* ===== ORCHESTRATION VIEW ===== */}
+            {view === 'orchestrate' && (
+              <motion.div
+                key="orchestrate"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+              >
+                <div className="text-center space-y-4 mb-8">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass-light text-[10px] tracking-widest text-ice-blue/80 uppercase border border-ice-blue/10">
+                    <Headset size={10} />
+                    <span>Autonomous Ticket Resolution — Zero-Shot Orchestration</span>
+                  </div>
+                  <h2 className="text-4xl sm:text-5xl font-light text-pearl/90 tracking-tight">Ticket Orchestrator</h2>
+                  <p className="text-sm text-titanium/50 max-w-xl mx-auto leading-relaxed">
+                    Submit a support ticket. Hyperion&apos;s orchestrator analyzes intent, searches the knowledge base, updates records, and composes a resolution — all autonomously with zero-shot planning.
+                  </p>
+                </div>
+
+                <TicketPanel
+                  ticket={orchTicket}
+                  plan={orchPlan}
+                  currentStepIndex={orchStep}
+                  running={orchRunning}
+                  completed={orchCompleted}
+                  resolution={orchResolution}
+                  onSubmit={submitTicket}
+                  onLoadDemo={loadOrchDemo}
+                  onReset={resetOrchestrator}
+                />
               </motion.div>
             )}
           </AnimatePresence>
