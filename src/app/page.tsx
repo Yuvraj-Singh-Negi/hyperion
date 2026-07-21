@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Activity, Shield, ChevronDown, Terminal, Zap, Radio, Mic, MicOff, Command, ArrowRight, Globe, Satellite, Radar, Brain, Target, Crown, AlertTriangle, BarChart3, Layers, RefreshCw, Download, Send, Clock, Headset, Bug } from 'lucide-react';
+import { Upload, Activity, Shield, ChevronDown, Terminal, Zap, Radio, Mic, MicOff, Command, ArrowRight, Globe, Satellite, Radar, Brain, Target, Crown, AlertTriangle, BarChart3, Layers, RefreshCw, Download, Send, Clock, Headset, Bug, MessageCircle } from 'lucide-react';
 import Image from 'next/image';
 import SplashScreen from '@/components/SplashScreen';
 import DataUploader from '@/components/DataUploader';
@@ -13,6 +13,7 @@ import NewsFeed from '@/components/NewsFeed';
 import EmergencyBanner from '@/components/EmergencyBanner';
 import TicketPanel from '@/components/TicketPanel';
 import CodeAgentPanel from '@/components/CodeAgentPanel';
+import ChatbotPanel from '@/components/ChatbotPanel';
 import { useCSVParser } from '@/hooks/useCSVParser';
 import { useOrchestrator } from '@/hooks/useOrchestrator';
 import { useCodeAgent } from '@/hooks/useCodeAgent';
@@ -266,6 +267,7 @@ export default function Home() {
                   { key: 'dashboard', label: 'Threats', icon: <AlertTriangle size={10} /> },
                   { key: 'orchestrate', label: 'Tickets', icon: <Headset size={10} /> },
                   { key: 'code-agent', label: 'Code AI', icon: <Bug size={10} /> },
+                  { key: 'assistant', label: 'Assistant', icon: <MessageCircle size={10} /> },
                 ].map((item) => (
                   <button
                     key={item.key}
@@ -887,6 +889,28 @@ export default function Home() {
                   onStart={startGeneration}
                   onReset={resetCodeAgent}
                 />
+              </motion.div>
+            )}
+
+            {/* ===== ASSISTANT / CHATBOT VIEW ===== */}
+            {view === 'assistant' && (
+              <motion.div
+                key="assistant"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+              >
+                <div className="text-center space-y-4 mb-8">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass-light text-[10px] tracking-widest text-ice-blue/80 uppercase border border-ice-blue/10">
+                    <MessageCircle size={10} />
+                    <span>Hyperion Assistant — Multilingual AI Helpdesk</span>
+                  </div>
+                  <h2 className="text-4xl sm:text-5xl font-light text-pearl/90 tracking-tight">Assistant</h2>
+                  <p className="text-sm text-titanium/50 max-w-xl mx-auto leading-relaxed">
+                    Ask questions about Hyperion&apos;s agents, features, and capabilities. Supports 13 languages with voice input and text-to-speech.
+                  </p>
+                </div>
+                <ChatbotPanel />
               </motion.div>
             )}
           </AnimatePresence>
