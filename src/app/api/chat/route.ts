@@ -1,5 +1,5 @@
-const AI_ENDPOINT = 'https://api.x.ai/v1/chat/completions';
-const AI_MODEL = 'grok-4';
+const AI_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
+const AI_MODEL = 'llama-3.3-70b-versatile';
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -7,11 +7,11 @@ interface ChatMessage {
 }
 
 export async function POST(request: Request) {
-  const apiKey = process.env.XAI_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
 
   if (!apiKey) {
-    console.error('XAI_API_KEY environment variable is not set');
-    return Response.json({ error: 'XAI_API_KEY environment variable is not set. Add it to .env.local and restart the dev server.' }, { status: 500 });
+    console.error('GROQ_API_KEY environment variable is not set');
+    return Response.json({ error: 'GROQ_API_KEY not configured. Get a free key at https://console.groq.com' }, { status: 500 });
   }
 
   try {
@@ -42,8 +42,8 @@ export async function POST(request: Request) {
 
     if (!res.ok) {
       const errorText = await res.text();
-      console.error(`xAI API error (${res.status}): ${errorText}`);
-      return Response.json({ error: `xAI API error (${res.status}): ${errorText.slice(0, 300)}` }, { status: 502 });
+      console.error(`Groq API error (${res.status}): ${errorText}`);
+      return Response.json({ error: `Groq API error (${res.status}): ${errorText.slice(0, 300)}` }, { status: 502 });
     }
 
     const data = await res.json();
