@@ -10,7 +10,8 @@ export async function POST(request: Request) {
   const apiKey = process.env.XAI_API_KEY;
 
   if (!apiKey) {
-    return Response.json({ error: 'API key not configured' }, { status: 500 });
+    console.error('XAI_API_KEY environment variable is not set');
+    return Response.json({ error: 'XAI_API_KEY environment variable is not set. Add it to .env.local and restart the dev server.' }, { status: 500 });
   }
 
   try {

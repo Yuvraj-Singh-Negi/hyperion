@@ -27,24 +27,8 @@ export async function chatWithAI(systemPrompt: string, messages: { role: 'user' 
     return data.content || 'I apologize, I was unable to process that request.';
   } catch (err) {
     console.error('AI chat failed:', err);
-    // Smart fallback when the API route is unavailable
-    const q = userMessage.toLowerCase();
-    if (q.includes('agent') || q.includes('scout') || q.includes('strategist') || q.includes('tactical') || q.includes('commander')) {
-      return `Great question about Hyperion's agents! The platform uses a 4-agent swarm: Scout (anomaly detection), Strategist (risk modeling), Tactical (mitigation planning), and Commander (decision approval). Each agent communicates via the War Room graph. Would you like me to go deeper into any specific agent?`;
-    }
-    if (q.includes('upload') || q.includes('csv') || q.includes('data')) {
-      return `You can upload CSV data in the Intelligence view or use the "Load Sample" button in the War Room. Hyperion analyzes 8 telemetry columns (throughput, latency, error rate, etc.) and scans for statistical anomalies using outlier detection.`;
-    }
-    if (q.includes('ticket') || q.includes('orchestrator')) {
-      return `The Ticket Orchestrator autonomously resolves support tickets using 4 sub-agents: Ticket Analyzer, Knowledge Searcher, Database Operator, and Resolution Composer. Check it out under the Tickets view!`;
-    }
-    if (q.includes('code') || q.includes('generate')) {
-      return `The Code Agent generates JavaScript functions from natural language. It has a self-correction loop: generate → validate syntax → run 5 test cases → parse errors → refactor → retry (up to 3 attempts). Try "Fibonacci" or "Palindrome checker" in the Code AI view!`;
-    }
-    if (q.includes('hello') || q.includes('hi') || q.includes('hey')) {
-      return `Hello! I'm the Hyperion Assistant. I can answer questions about the platform's agents (Scout, Strategist, Tactical, Commander), features (voice commands, TTS, CSV analysis, ticket orchestration, code generation), and more. What would you like to know?`;
-    }
-    return 'I apologize, but I encountered an error processing your request. Please try again.';
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return `[Error] ${message}. Please check your API key configuration and ensure the dev server has been restarted.`;
   }
 }
 
