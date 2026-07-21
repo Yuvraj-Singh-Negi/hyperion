@@ -270,17 +270,42 @@ export default function Home() {
                   </div>
                   <div className="flex items-center gap-3">
                     {!csvData && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setView('upload')}
+                          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-ice-blue/10 text-ice-blue border border-ice-blue/20 hover:bg-ice-blue/20 transition-all text-xs tracking-wide"
+                        >
+                          <Upload size={12} />
+                          Upload
+                        </button>
+                        <button
+                          onClick={() => {
+                            fetch('/sample_data.csv')
+                              .then((r) => r.text())
+                              .then((text) => {
+                                const file = new File([text], 'sample_data.csv', { type: 'text/csv' });
+                                parseFile(file);
+                              });
+                          }}
+                          className="px-5 py-2.5 rounded-full border border-pearl/10 text-titanium/50 hover:text-pearl/70 hover:border-pearl/20 transition-all text-xs tracking-wide"
+                        >
+                          Load Sample
+                        </button>
+                      </div>
+                    )}
+                    {csvData && !running && (
                       <button
-                        onClick={() => setView('upload')}
-                        className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-ice-blue/10 text-ice-blue border border-ice-blue/20 hover:bg-ice-blue/20 transition-all text-xs tracking-wide"
+                        onClick={() => { resetAgents(); runAnalysis(csvData); }}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald/10 text-emerald border border-emerald/20 hover:bg-emerald/20 transition-all text-xs tracking-wide"
                       >
-                        <Upload size={12} />
-                        Upload Dataset
+                        <Radar size={12} />
+                        Run Analysis
                       </button>
                     )}
-                    {csvData && (
-                      <div className="text-right text-[10px] text-titanium/40 font-mono">
-                        {csvData.fileName} · {csvData.rowCount} rows
+                    {csvData && running && (
+                      <div className="text-[10px] text-ice-blue/60 font-mono flex items-center gap-2">
+                        <motion.div className="w-2 h-2 rounded-full bg-ice-blue" animate={{ scale: [1, 1.5, 1] }} transition={{ duration: 1, repeat: Infinity }} />
+                        Processing...
                       </div>
                     )}
                   </div>

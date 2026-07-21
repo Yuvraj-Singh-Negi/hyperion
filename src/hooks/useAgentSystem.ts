@@ -1,38 +1,34 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { AgentMessage, AgentState, CSVData } from '@/types';
+import { AgentMessage, AgentState, CSVData, Agent } from '@/types';
 import { scoutScan, strategize, planTactical, generateMessages } from '@/lib/agentEngine';
 
-function makeAgent(
-  id: string, name: string,
-  role: 'scout' | 'strategist' | 'tactical' | 'commander',
-  status: AgentState['scout']['scanning'] extends boolean ? 'idle' | 'scanning' | 'analyzing' | 'planning' | 'executing' | 'resolved' : 'idle'
-) {
-  return { id, name, role, status, confidence: 100, objective: 'Standing by', timeline: 'Ready', actions: [], thinking: '' };
-}
-
-const defaultAgents = [
-  makeAgent('scout-1', 'Scout', 'scout', 'idle'),
-  makeAgent('strategist-1', 'Strategist', 'strategist', 'idle'),
-  makeAgent('tactical-1', 'Tactical', 'tactical', 'idle'),
-  makeAgent('commander-1', 'Commander', 'commander', 'idle'),
+const defaultAgents: Agent[] = [
+  { id: 'scout-1', name: 'Scout', role: 'scout', status: 'idle', confidence: 100, objective: 'Standing by', timeline: 'Ready', actions: [], thinking: '' },
+  { id: 'strategist-1', name: 'Strategist', role: 'strategist', status: 'idle', confidence: 100, objective: 'Standing by', timeline: 'Ready', actions: [], thinking: '' },
+  { id: 'tactical-1', name: 'Tactical', role: 'tactical', status: 'idle', confidence: 100, objective: 'Standing by', timeline: 'Ready', actions: [], thinking: '' },
+  { id: 'commander-1', name: 'Commander', role: 'commander', status: 'idle', confidence: 100, objective: 'Standing by', timeline: 'Ready', actions: [], thinking: '' },
 ];
 
+const defaultState: AgentState = {
+  scout: { anomalies: [], scanning: false, progress: 0, message: 'Awaiting data input' },
+  strategist: { scenarios: [], analyzing: false, message: 'Awaiting scout data' },
+  tactical: { actions: [], planning: false, message: 'Awaiting strategic directives' },
+  commander: { decision: 'pending', feedback: 'Awaiting tactical plan', logs: [] },
+};
+
 export function useAgentSystem() {
-  const [agents, setAgents] = useState(defaultAgents);
-  const [state, setState] = useState<AgentState>({
-    scout: { anomalies: [], scanning: false, progress: 0, message: 'Awaiting data input' },
-    strategist: { scenarios: [], analyzing: false, message: 'Awaiting scout data' },
-    tactical: { actions: [], planning: false, message: 'Awaiting strategic directives' },
-    commander: { decision: 'pending', feedback: 'Awaiting tactical plan', logs: [] },
-  });
+  const [agents, setAgents] = useState<Agent[]>(defaultAgents);
+  const [state, setState] = useState<AgentState>(defaultState);
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [running, setRunning] = useState(false);
   const [completed, setCompleted] = useState(false);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const cancelledRef = useRef(false);
 
   const clearTimers = useCallback(() => {
+    cancelledRef.current = true;
     timersRef.current.forEach(clearTimeout);
     timersRef.current = [];
   }, []);
@@ -41,109 +37,101 @@ export function useAgentSystem() {
     return () => clearTimers();
   }, [clearTimers]);
 
+  const addTimer = useCallback((delay: number, fn: () => void) => {
+    const timer = setTimeout(() => {
+      if (!cancelledRef.current) fn();
+    }, delay);
+    timersRef.current.push(timer);
+    return timer;
+  }, []);
+
   const runAnalysis = useCallback((csvData: CSVData | null) => {
     clearTimers();
+    cancelledRef.current = false;
     setCompleted(false);
     setRunning(true);
     setMessages([]);
+    setState(defaultState);
+    setAgents(defaultAgents);
 
     const rows = csvData?.rows ?? [];
-    const steps: { delay: number; fn: () => void }[] = [];
 
-    // Phase 1: Scout scans
-    steps.push({
-      delay: 0,
-      fn: () => {
-        setAgents((prev) => prev.map((a) => a.role === 'scout' ? { ...a, status: 'scanning', objective: 'Scanning data streams for anomalies' } : a));
-        setState((prev) => ({ ...prev, scout: { ...prev.scout, scanning: true, progress: 0, message: 'Initializing scan...' } }));
-      },
+    // Phase 1: Scout - scan with progress
+    addTimer(100, () => {
+      setAgents((prev) => prev.map((a) => a.role === 'scout' ? { ...a, status: 'scanning' as const, objective: 'Scanning data streams for anomalies...' } : a));
+      setState((prev) => ({ ...prev, scout: { ...prev.scout, scanning: true, progress: 10, message: 'Initializing scan...' } }));
     });
 
-    for (let p = 20; p <= 100; p += 20) {
-      steps.push({
-        delay: 400 + p * 15,
-        fn: () => {
-          setState((prev) => ({ ...prev, scout: { ...prev.scout, progress: p, message: p < 100 ? `Scanning... ${p}%` : 'Anomalies detected!' } }));
-        },
+    addTimer(500, () => setState((prev) => ({ ...prev, scout: { ...prev.scout, progress: 30, message: 'Analyzing signal patterns...' } })));
+    addTimer(1000, () => setState((prev) => ({ ...prev, scout: { ...prev.scout, progress: 60, message: 'Cross-referencing datasets...' } })));
+    addTimer(1500, () => setState((prev) => ({ ...prev, scout: { ...prev.scout, progress: 85, message: 'Identifying statistical outliers...' } })));
+
+    addTimer(2200, () => {
+      const anomalies = scoutScan(rows);
+      setState((prev) => ({ ...prev, scout: { anomalies, scanning: false, progress: 100, message: `${anomalies.length} anomalies identified` } }));
+      setAgents((prev) => prev.map((a) => a.role === 'scout' ? { ...a, status: 'resolved' as const, confidence: 94.2, objective: `${anomalies.length} anomalies found` } : a));
+
+      if (anomalies.length === 0 || cancelledRef.current) {
+        setRunning(false);
+        setCompleted(true);
+        return;
+      }
+
+      // Phase 2: Strategist
+      addTimer(600, () => {
+        setAgents((prev) => prev.map((a) => a.role === 'strategist' ? { ...a, status: 'analyzing' as const, objective: 'Modeling escalation scenarios...' } : a));
+        setState((prev) => ({ ...prev, strategist: { ...prev.strategist, analyzing: true, message: 'Running predictive models...' } }));
+
+        addTimer(1500, () => {
+          if (cancelledRef.current) return;
+          const scenarios = strategize(anomalies);
+          setState((prev) => ({ ...prev, strategist: { scenarios, analyzing: false, message: `${scenarios.length} scenarios modeled` } }));
+          setAgents((prev) => prev.map((a) => a.role === 'strategist' ? { ...a, status: 'resolved' as const, confidence: 87.6, objective: `${scenarios.length} escalation paths` } : a));
+
+          // Phase 3: Tactical
+          addTimer(800, () => {
+            setAgents((prev) => prev.map((a) => a.role === 'tactical' ? { ...a, status: 'planning' as const, objective: 'Formulating mitigation actions...' } : a));
+            setState((prev) => ({ ...prev, tactical: { ...prev.tactical, planning: true, message: 'Generating action plan...' } }));
+
+            addTimer(1500, () => {
+              if (cancelledRef.current) return;
+              const actions = planTactical(scenarios);
+              setState((prev) => ({ ...prev, tactical: { actions, planning: false, message: `${actions.length} actions queued` } }));
+              setAgents((prev) => prev.map((a) => a.role === 'tactical' ? { ...a, status: 'resolved' as const, confidence: 99.1, objective: `${actions.length} mitigations ready` } : a));
+
+              // Phase 4: Commander
+              addTimer(1000, () => {
+                setAgents((prev) => prev.map((a) => a.role === 'commander' ? { ...a, status: 'executing' as const, objective: 'Reviewing and approving plan...' } : a));
+                setState((prev) => ({ ...prev, commander: { ...prev.commander, decision: 'pending' as const, feedback: 'Analyzing tactical recommendations...', logs: [] } }));
+
+                addTimer(1500, () => {
+                  if (cancelledRef.current) return;
+                  const msgs = generateMessages(anomalies, scenarios, actions);
+                  setMessages(msgs);
+                  setState((prev) => ({
+                    ...prev,
+                    commander: {
+                      decision: 'approved' as const,
+                      feedback: 'All mitigations authorized. Autonomous protocols engaged.',
+                      logs: actions.map((a) => `✓ ${a.label} — ${a.status === 'pending' ? 'Approved' : 'Completed'}`),
+                    },
+                  }));
+                  setAgents((prev) => prev.map((a) => a.role === 'commander' ? { ...a, status: 'resolved' as const, confidence: 100, objective: 'Mission plan approved' } : a));
+                  setRunning(false);
+                  setCompleted(true);
+                });
+              });
+            });
+          });
+        });
       });
-    }
-
-    steps.push({
-      delay: 2200,
-      fn: () => {
-        const anomalies = scoutScan(rows);
-        setState((prev) => ({ ...prev, scout: { anomalies, scanning: false, progress: 100, message: `${anomalies.length} anomalies identified` } }));
-        setAgents((prev) => prev.map((a) => a.role === 'scout' ? { ...a, status: 'resolved', confidence: 94.2, objective: `${anomalies.length} anomalies found` } : a));
-
-        if (anomalies.length === 0) {
-          setRunning(false);
-          setCompleted(true);
-          return;
-        }
-
-        // Phase 2: Strategist analyzes
-        setTimeout(() => {
-          setAgents((prev) => prev.map((a) => a.role === 'strategist' ? { ...a, status: 'analyzing', objective: 'Modeling escalation scenarios' } : a));
-          setState((prev) => ({ ...prev, strategist: { ...prev.strategist, analyzing: true, message: 'Running predictive models...' } }));
-
-          setTimeout(() => {
-            const scenarios = strategize(anomalies);
-            setState((prev) => ({ ...prev, strategist: { scenarios, analyzing: false, message: `${scenarios.length} scenarios modeled` } }));
-            setAgents((prev) => prev.map((a) => a.role === 'strategist' ? { ...a, status: 'resolved', confidence: 87.6, objective: `${scenarios.length} escalation paths` } : a));
-
-            // Phase 3: Tactical plans
-            setTimeout(() => {
-              setAgents((prev) => prev.map((a) => a.role === 'tactical' ? { ...a, status: 'planning', objective: 'Formulating mitigation actions' } : a));
-              setState((prev) => ({ ...prev, tactical: { ...prev.tactical, planning: true, message: 'Generating action plan...' } }));
-
-              setTimeout(() => {
-                const actions = planTactical(scenarios);
-                setState((prev) => ({ ...prev, tactical: { actions, planning: false, message: `${actions.length} actions queued` } }));
-                setAgents((prev) => prev.map((a) => a.role === 'tactical' ? { ...a, status: 'resolved', confidence: 99.1, objective: `${actions.length} mitigations ready` } : a));
-
-                // Phase 4: Commander decides
-                setTimeout(() => {
-                  setAgents((prev) => prev.map((a) => a.role === 'commander' ? { ...a, status: 'executing', objective: 'Reviewing and approving plan' } : a));
-                  setState((prev) => ({ ...prev, commander: { ...prev.commander, decision: 'pending', feedback: 'Analyzing tactical recommendations...', logs: [] } }));
-
-                  setTimeout(() => {
-                    const msgs = generateMessages(anomalies, scenarios, actions);
-                    setMessages(msgs);
-                    setState((prev) => ({
-                      ...prev,
-                      commander: {
-                        decision: 'approved',
-                        feedback: 'All mitigations authorized. Autonomous protocols engaged.',
-                        logs: actions.map((a) => `✓ ${a.label} — ${a.status === 'pending' ? 'Approved' : 'Completed'}`),
-                      },
-                    }));
-                    setAgents((prev) => prev.map((a) => a.role === 'commander' ? { ...a, status: 'resolved', confidence: 100, objective: 'Mission plan approved' } : a));
-                    setRunning(false);
-                    setCompleted(true);
-                  }, 1500);
-                }, 1000);
-              }, 1500);
-            }, 800);
-          }, 1500);
-        }, 600);
-      },
     });
-
-    steps.forEach((s) => {
-      const timer = setTimeout(s.fn, s.delay);
-      timersRef.current.push(timer);
-    });
-  }, [clearTimers]);
+  }, [clearTimers, addTimer]);
 
   const reset = useCallback(() => {
     clearTimers();
     setAgents(defaultAgents);
-    setState({
-      scout: { anomalies: [], scanning: false, progress: 0, message: 'Awaiting data input' },
-      strategist: { scenarios: [], analyzing: false, message: 'Awaiting scout data' },
-      tactical: { actions: [], planning: false, message: 'Awaiting strategic directives' },
-      commander: { decision: 'pending', feedback: 'Awaiting tactical plan', logs: [] },
-    });
+    setState(defaultState);
     setMessages([]);
     setRunning(false);
     setCompleted(false);
