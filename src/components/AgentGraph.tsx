@@ -166,6 +166,8 @@ export default function AgentGraph({ agents, state }: AgentGraphProps) {
         nodeTypes={nodeTypes as any /* eslint-disable-line @typescript-eslint/no-explicit-any */}
         fitView
         fitViewOptions={{ padding: 0.3 }}
+        zoomOnScroll={false}
+        zoomOnPinch={true}
         proOptions={{ hideAttribution: true }}
         className="bg-obsidian"
       >

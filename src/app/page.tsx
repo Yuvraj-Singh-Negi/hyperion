@@ -246,76 +246,8 @@ export default function Home() {
         {/* Main Content */}
         <main className="relative z-10 pt-32 pb-24 max-w-7xl mx-auto px-6">
           <AnimatePresence mode="wait">
-            {/* HERO / WELCOME (shown only when no CSV loaded and view is war-room) */}
-            {view === 'war-room' && !csvData && !running && state.scout.anomalies.length === 0 && (
-              <motion.div
-                key="hero"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="min-h-[70vh] flex flex-col justify-center max-w-4xl"
-              >
-                <motion.div
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 1, ease: [0.25, 0.1, 0, 1] }}
-                  className="space-y-6"
-                >
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass-light text-[10px] tracking-widest text-ice-blue/80 uppercase border border-ice-blue/10">
-                    <Shield size={10} />
-                    <span>Autonomous Threat Detection Platform v2.1</span>
-                  </div>
-
-                  <h1 className="text-5xl sm:text-7xl lg:text-8xl font-light leading-[0.95] tracking-tight">
-                    <span className="text-pearl/90">Command</span>
-                    <br />
-                    <span className="text-gradient">&amp; Control</span>
-                    <br />
-                    <span className="text-pearl/70">Any Crisis.</span>
-                  </h1>
-
-                  <p className="text-base sm:text-lg text-titanium/60 max-w-2xl leading-relaxed font-light">
-                    Upload your enterprise dataset. Hyperion&apos;s four-agent swarm will autonomously
-                    scan for anomalies, model escalation scenarios, and formulate mitigation plans.
-                  </p>
-
-                  <div className="flex flex-wrap gap-4 pt-4">
-                    <button
-                      onClick={() => setView('upload')}
-                      className="group inline-flex items-center gap-2 px-6 py-3 rounded-full bg-ice-blue/10 text-ice-blue border border-ice-blue/20 hover:bg-ice-blue/20 transition-all duration-300 text-sm tracking-wide"
-                    >
-                      <Upload size={14} />
-                      Upload Dataset
-                      <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-                    </button>
-                    <button
-                      onClick={() => { setView('war-room'); }}
-                      className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-pearl/10 text-titanium/50 hover:text-pearl/70 hover:border-pearl/20 transition-all duration-300 text-sm tracking-wide"
-                    >
-                      <Activity size={14} />
-                      Explore Interface
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-8 pt-12 max-w-lg">
-                    {[
-                      { value: '194', label: 'Countries', sub: 'Monitored' },
-                      { value: '4', label: 'AI Agents', sub: 'Active Swarm' },
-                      { value: '0.4ms', label: 'Response', sub: 'Latency' },
-                    ].map((stat) => (
-                      <div key={stat.label} className="space-y-0.5">
-                        <div className="text-3xl font-light text-pearl/90">{stat.value}</div>
-                        <div className="text-xs text-titanium/50">{stat.label}</div>
-                        <div className="text-[9px] text-titanium/30">{stat.sub}</div>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              </motion.div>
-            )}
-
             {/* WAR ROOM VIEW */}
-            {view === 'war-room' && (csvData || running || state.scout.anomalies.length > 0) && (
+            {view === 'war-room' && (
               <motion.div
                 key="war-room"
                 initial={{ opacity: 0, y: 20 }}
@@ -327,15 +259,31 @@ export default function Home() {
                   <div className="space-y-2">
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass-light text-[10px] tracking-widest text-ice-blue/80 uppercase border border-ice-blue/10">
                       <Radar size={10} />
-                      <span>Command Center — Active Session</span>
+                      <span>Command Center</span>
                     </div>
                     <h2 className="text-3xl sm:text-4xl font-light text-pearl/90">War Room</h2>
+                    {!csvData && (
+                      <p className="text-sm text-titanium/50 font-light mt-2">
+                        Upload a dataset to begin analysis, or explore the agent network below.
+                      </p>
+                    )}
                   </div>
-                  {csvData && (
-                    <div className="text-right text-[10px] text-titanium/40 font-mono">
-                      {csvData.fileName} · {csvData.rowCount} rows
-                    </div>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {!csvData && (
+                      <button
+                        onClick={() => setView('upload')}
+                        className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-ice-blue/10 text-ice-blue border border-ice-blue/20 hover:bg-ice-blue/20 transition-all text-xs tracking-wide"
+                      >
+                        <Upload size={12} />
+                        Upload Dataset
+                      </button>
+                    )}
+                    {csvData && (
+                      <div className="text-right text-[10px] text-titanium/40 font-mono">
+                        {csvData.fileName} · {csvData.rowCount} rows
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <AgentGraph agents={agents} state={state} />
