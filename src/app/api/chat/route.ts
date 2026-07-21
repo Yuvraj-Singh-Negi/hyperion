@@ -1,5 +1,5 @@
 const AI_ENDPOINT = 'https://api.x.ai/v1/chat/completions';
-const AI_MODEL = 'grok-2-1212';
+const AI_MODEL = 'grok-4.5';
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
