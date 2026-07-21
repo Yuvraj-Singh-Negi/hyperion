@@ -1,56 +1,100 @@
+export type AgentRole = 'scout' | 'strategist' | 'tactical' | 'commander';
+export type AgentStatus = 'idle' | 'scanning' | 'analyzing' | 'planning' | 'executing' | 'resolved';
+export type Severity = 'low' | 'moderate' | 'high' | 'critical';
+export type AnomalyType = 'cyber' | 'weather' | 'financial' | 'infrastructure' | 'supply_chain' | 'geopolitical';
+
 export interface Agent {
   id: string;
   name: string;
-  role: 'scout' | 'strategist' | 'tactical' | 'commander';
-  status: 'idle' | 'scanning' | 'planning' | 'executing' | 'resolved';
+  role: AgentRole;
+  status: AgentStatus;
   confidence: number;
   objective: string;
   timeline: string;
   actions: string[];
+  thinking: string;
 }
 
-export interface Alert {
+export interface Anomaly {
   id: string;
-  type: 'cyber' | 'weather' | 'financial' | 'infrastructure' | 'supply_chain' | 'geopolitical';
-  severity: 'low' | 'moderate' | 'high' | 'critical';
+  type: AnomalyType;
+  severity: Severity;
   title: string;
   description: string;
   timestamp: string;
   region: string;
   value: string;
   trend: 'up' | 'down' | 'stable';
+  rowData?: Record<string, unknown>;
 }
 
-export interface Metric {
+export interface AgentMessage {
   id: string;
-  label: string;
-  value: number;
-  unit: string;
-  trend: 'up' | 'down' | 'stable';
-  change: number;
+  from: AgentRole;
+  to: AgentRole;
+  content: string;
+  timestamp: number;
+  type: 'alert' | 'analysis' | 'plan' | 'approval' | 'report';
 }
 
-export interface Signal {
+export interface AgentScenario {
   id: string;
-  source: string;
-  type: string;
-  confidence: number;
-  timestamp: string;
-  summary: string;
-}
-
-export interface DashboardData {
-  globalRiskIndex: number;
-  cyberThreatLevel: string;
-  activeEvents: number;
-  agentsOnline: number;
-  responseLatency: string;
-  satellitesTracked: number;
-  countriesMonitored: number;
-}
-
-export interface VoiceCommand {
-  command: string;
-  action: () => void;
+  title: string;
+  probability: number;
+  impact: string;
+  cost: number;
+  timeline: string;
   description: string;
+}
+
+export interface TacticalAction {
+  id: string;
+  type: 'api_call' | 'notification' | 'reallocation' | 'patch' | 'negotiation';
+  label: string;
+  status: 'pending' | 'executing' | 'completed' | 'failed';
+  target: string;
+  description: string;
+}
+
+export interface CSVColumn {
+  key: string;
+  label: string;
+  type: 'string' | 'number' | 'date';
+  sample: string;
+}
+
+export interface CSVData {
+  columns: CSVColumn[];
+  rows: Record<string, unknown>[];
+  fileName: string;
+  rowCount: number;
+}
+
+export interface ParsedAnomaly {
+  anomaly: Anomaly;
+  rowIndex: number;
+}
+
+export interface AgentState {
+  scout: {
+    anomalies: Anomaly[];
+    scanning: boolean;
+    progress: number;
+    message: string;
+  };
+  strategist: {
+    scenarios: AgentScenario[];
+    analyzing: boolean;
+    message: string;
+  };
+  tactical: {
+    actions: TacticalAction[];
+    planning: boolean;
+    message: string;
+  };
+  commander: {
+    decision: 'pending' | 'approved' | 'rejected' | 'modified';
+    feedback: string;
+    logs: string[];
+  };
 }
