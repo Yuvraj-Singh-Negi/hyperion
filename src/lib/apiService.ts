@@ -8,28 +8,26 @@ export interface NewsItem {
   publishedAt: string;
 }
 
-// --- AI LLM Service (xAI / OpenAI-compatible) ---
-
-const AI_ENDPOINT = 'https://api.x.ai/v1/chat/completions';
-const AI_MODEL = 'grok-2-1212';
-
-interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
+// --- AI LLM Service (server-side proxy via /api/chat) ---
 
 export async function chatWithAI(systemPrompt: string, messages: { role: 'user' | 'assistant'; content: string }[], userMessage: string): Promise<string> {
-  const apiKey = process.env.NEXT_PUBLIC_XAI_API_KEY;
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ systemPrompt, messages, userMessage }),
+    });
 
-  const conversation: ChatMessage[] = [
-    { role: 'system', content: systemPrompt },
-    ...messages.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-    { role: 'user', content: userMessage },
-  ];
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || `HTTP ${res.status}`);
+    }
 
-  if (!apiKey) {
-    // Smart fallback when no API key is configured
-    await new Promise((r) => setTimeout(r, 600 + Math.random() * 900));
+    const data = await res.json();
+    return data.content || 'I apologize, I was unable to process that request.';
+  } catch (err) {
+    console.error('AI chat failed:', err);
+    // Smart fallback when the API route is unavailable
     const q = userMessage.toLowerCase();
     if (q.includes('agent') || q.includes('scout') || q.includes('strategist') || q.includes('tactical') || q.includes('commander')) {
       return `Great question about Hyperion's agents! The platform uses a 4-agent swarm: Scout (anomaly detection), Strategist (risk modeling), Tactical (mitigation planning), and Commander (decision approval). Each agent communicates via the War Room graph. Would you like me to go deeper into any specific agent?`;
@@ -46,33 +44,6 @@ export async function chatWithAI(systemPrompt: string, messages: { role: 'user' 
     if (q.includes('hello') || q.includes('hi') || q.includes('hey')) {
       return `Hello! I'm the Hyperion Assistant. I can answer questions about the platform's agents (Scout, Strategist, Tactical, Commander), features (voice commands, TTS, CSV analysis, ticket orchestration, code generation), and more. What would you like to know?`;
     }
-    return `That's an interesting question about Hyperion! The platform is designed as an autonomous AI War Room for enterprise threat detection and mitigation. You can navigate between 5 views: War Room, Intelligence, Threats, Tickets, and Code AI. Feel free to ask about any specific feature!`;
-  }
-
-  try {
-    const res = await fetch(AI_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        messages: conversation,
-        temperature: 0.7,
-        max_tokens: 1024,
-      }),
-    });
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`AI API error (${res.status}): ${errorText}`);
-    }
-
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content ?? 'I apologize, I was unable to process that request.';
-  } catch (err) {
-    console.error('AI chat failed:', err);
     return 'I apologize, but I encountered an error processing your request. Please try again.';
   }
 }
