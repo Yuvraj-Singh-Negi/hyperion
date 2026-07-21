@@ -13,6 +13,11 @@ export interface NewsItem {
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
+interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
 export async function callGroq(prompt: string): Promise<string> {
   const apiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
 
@@ -45,6 +50,64 @@ export async function callGroq(prompt: string): Promise<string> {
   } catch (err) {
     console.error('Groq call failed, falling back to simulated response:', err);
     return simulateGroqResponse(prompt);
+  }
+}
+
+export async function chatWithAI(systemPrompt: string, messages: { role: 'user' | 'assistant'; content: string }[], userMessage: string): Promise<string> {
+  const apiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
+
+  const conversation: ChatMessage[] = [
+    { role: 'system', content: systemPrompt },
+    ...messages.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+    { role: 'user', content: userMessage },
+  ];
+
+  if (!apiKey) {
+    await new Promise((r) => setTimeout(r, 600 + Math.random() * 900));
+    const lastQuestion = userMessage.toLowerCase();
+    if (lastQuestion.includes('agent') || lastQuestion.includes('scout') || lastQuestion.includes('strategist') || lastQuestion.includes('tactical') || lastQuestion.includes('commander')) {
+      return `Great question about Hyperion's agents! The platform uses a 4-agent swarm: Scout (anomaly detection), Strategist (risk modeling), Tactical (mitigation planning), and Commander (decision approval). Each agent communicates via the War Room graph. Would you like me to go deeper into any specific agent?`;
+    }
+    if (lastQuestion.includes('upload') || lastQuestion.includes('csv') || lastQuestion.includes('data')) {
+      return `You can upload CSV data in the Intelligence view or use the "Load Sample" button in the War Room. Hyperion analyzes 8 telemetry columns (throughput, latency, error rate, etc.) and scans for statistical anomalies using outlier detection.`;
+    }
+    if (lastQuestion.includes('ticket') || lastQuestion.includes('orchestrator')) {
+      return `The Ticket Orchestrator autonomously resolves support tickets using 4 sub-agents: Ticket Analyzer, Knowledge Searcher, Database Operator, and Resolution Composer. Check it out under the Tickets view!`;
+    }
+    if (lastQuestion.includes('code') || lastQuestion.includes('generate')) {
+      return `The Code Agent generates JavaScript functions from natural language. It has a self-correction loop: generate → validate syntax → run 5 test cases → parse errors → refactor → retry (up to 3 attempts). Try "Fibonacci" or "Palindrome checker" in the Code AI view!`;
+    }
+    if (lastQuestion.includes('hello') || lastQuestion.includes('hi') || lastQuestion.includes('hey')) {
+      return `Hello! I'm the Hyperion Assistant. I can answer questions about the platform's agents (Scout, Strategist, Tactical, Commander), features (voice commands, TTS, CSV analysis, ticket orchestration, code generation), and more. What would you like to know?`;
+    }
+    return `That's an interesting question about Hyperion! The platform is designed as an autonomous AI War Room for enterprise threat detection and mitigation. You can navigate between 5 views: War Room, Intelligence, Threats, Tickets, and Code AI. Feel free to ask about any specific feature!`;
+  }
+
+  try {
+    const res = await fetch(GROQ_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: conversation,
+        temperature: 0.7,
+        max_tokens: 1024,
+      }),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Groq API error (${res.status}): ${errorText}`);
+    }
+
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content ?? 'I apologize, I was unable to process that request.';
+  } catch (err) {
+    console.error('Groq chat failed:', err);
+    return 'I apologize, but I encountered an error processing your request. Please try again.';
   }
 }
 
