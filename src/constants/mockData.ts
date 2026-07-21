@@ -1,0 +1,170 @@
+import { Agent, Alert, Metric, Signal, DashboardData } from '@/types';
+
+export const agents: Agent[] = [
+  {
+    id: 'scout-1',
+    name: 'Scout',
+    role: 'scout',
+    status: 'scanning',
+    confidence: 94.2,
+    objective: 'Scanning global signals for anomalies',
+    timeline: 'Active 2m 34s',
+    actions: [
+      'Monitoring 1,247 data streams',
+      'Cross-referencing satellite imagery',
+      'Analyzing social sentiment',
+    ],
+  },
+  {
+    id: 'strategist-1',
+    name: 'Strategist',
+    role: 'strategist',
+    status: 'planning',
+    confidence: 87.6,
+    objective: 'Modeling escalation scenarios',
+    timeline: 'Planning phase 47s',
+    actions: [
+      'Running 12 predictive models',
+      'Simulating 3 escalation paths',
+      'Calculating confidence intervals',
+    ],
+  },
+  {
+    id: 'tactical-1',
+    name: 'Tactical',
+    role: 'tactical',
+    status: 'idle',
+    confidence: 99.1,
+    objective: 'Awaiting strategic directives',
+    timeline: 'Standby',
+    actions: [
+      'Preparing execution frameworks',
+      'Validating resource allocation',
+      'Maintaining readiness state',
+    ],
+  },
+  {
+    id: 'commander-1',
+    name: 'Commander',
+    role: 'commander',
+    status: 'resolved',
+    confidence: 100,
+    objective: 'Mission complete - cyber intrusion neutralized',
+    timeline: 'Resolved 12m 07s ago',
+    actions: [
+      'Final report generated',
+      'Post-mitigation analysis complete',
+      'System integrity verified',
+    ],
+  },
+];
+
+export const alerts: Alert[] = [
+  {
+    id: 'alert-1',
+    type: 'cyber',
+    severity: 'critical',
+    title: 'Zero-Day Exploit Detected',
+    description: 'Active exploitation of critical infrastructure endpoint in Pacific region.',
+    timestamp: '2s ago',
+    region: 'Pacific Northwest',
+    value: 'Critical',
+    trend: 'up',
+  },
+  {
+    id: 'alert-2',
+    type: 'weather',
+    severity: 'high',
+    title: 'Supercell Formation',
+    description: 'Atmospheric anomaly detected over South China Sea. Projected path intersects major shipping lanes.',
+    timestamp: '14s ago',
+    region: 'South China Sea',
+    value: 'High',
+    trend: 'up',
+  },
+  {
+    id: 'alert-3',
+    type: 'financial',
+    severity: 'moderate',
+    title: 'Volatility Spike Alert',
+    description: 'Unusual options activity detected across energy futures markets.',
+    timestamp: '47s ago',
+    region: 'Global Markets',
+    value: '+3.2%',
+    trend: 'up',
+  },
+  {
+    id: 'alert-4',
+    type: 'infrastructure',
+    severity: 'low',
+    title: 'Grid Anomaly Detected',
+    description: 'Minor frequency deviation in Nordic power grid. Automated stabilization engaged.',
+    timestamp: '2m ago',
+    region: 'Northern Europe',
+    value: '-0.4%',
+    trend: 'down',
+  },
+  {
+    id: 'alert-5',
+    type: 'supply_chain',
+    severity: 'moderate',
+    title: 'Port Congestion Alert',
+    description: 'Shanghai port throughput dropping below threshold. Estimated 48hr delay propagation.',
+    timestamp: '3m ago',
+    region: 'East Asia',
+    value: '-12%',
+    trend: 'down',
+  },
+  {
+    id: 'alert-6',
+    type: 'geopolitical',
+    severity: 'critical',
+    title: 'Satellite Anomaly',
+    description: 'Geostationary communication satellite showing irregular telemetry. Potential service disruption.',
+    timestamp: '8m ago',
+    region: 'GEO Orbit',
+    value: 'Critical',
+    trend: 'up',
+  },
+];
+
+export const metrics: Metric[] = [
+  { id: 'm1', label: 'Countries Monitored', value: 194, unit: '', trend: 'up', change: 2 },
+  { id: 'm2', label: 'Events Analyzed', value: 12478, unit: '', trend: 'up', change: 342 },
+  { id: 'm3', label: 'Live Signals', value: 892, unit: '', trend: 'stable', change: 0 },
+  { id: 'm4', label: 'Response Latency', value: 0.4, unit: 'ms', trend: 'down', change: 0.02 },
+  { id: 'm5', label: 'Satellites Tracked', value: 2847, unit: '', trend: 'up', change: 12 },
+  { id: 'm6', label: 'Active Agents', value: 4, unit: '', trend: 'stable', change: 0 },
+];
+
+export const statusFeed: Signal[] = [
+  { id: 's1', source: 'Scout', type: 'Signal Detection', confidence: 94.2, timestamp: '2s ago', summary: 'Zero-day exploit signature matched in wild' },
+  { id: 's2', source: 'Strategist', type: 'Scenario Modeling', confidence: 87.6, timestamp: '14s ago', summary: 'Escalation path Alpha-7 modeled with 3 variants' },
+  { id: 's3', source: 'Scout', type: 'Geospatial', confidence: 91.8, timestamp: '23s ago', summary: 'Supercell formation detected - South China Sea' },
+  { id: 's4', source: 'Tactical', type: 'Resource Allocation', confidence: 99.1, timestamp: '47s ago', summary: 'Response units positioned and awaiting orders' },
+  { id: 's5', source: 'Commander', type: 'Mission Report', confidence: 100, timestamp: '1m ago', summary: 'Cyber intrusion mitigation verified successful' },
+  { id: 's6', source: 'Scout', type: 'Financial Signal', confidence: 78.4, timestamp: '2m ago', summary: 'Unusual options activity - energy sector' },
+  { id: 's7', source: 'Strategist', type: 'Risk Assessment', confidence: 92.3, timestamp: '3m ago', summary: 'Supply chain disruption probability updated to 34%' },
+  { id: 's8', source: 'Scout', type: 'Infrastructure', confidence: 88.9, timestamp: '4m ago', summary: 'Nordic power grid frequency deviation detected' },
+];
+
+export const dashboardData: DashboardData = {
+  globalRiskIndex: 47.3,
+  cyberThreatLevel: 'Elevated',
+  activeEvents: 12,
+  agentsOnline: 4,
+  responseLatency: '0.4ms',
+  satellitesTracked: 2847,
+  countriesMonitored: 194,
+};
+
+export const statusStripItems = [
+  { label: 'Global Risk Index', value: 47.3, unit: '%', trend: 'up' as const },
+  { label: 'Cyber Threat Level', value: 73, unit: '%', trend: 'up' as const },
+  { label: 'Energy Grid Stability', value: 94.1, unit: '%', trend: 'down' as const },
+  { label: 'Supply Chain Confidence', value: 82.6, unit: '%', trend: 'down' as const },
+  { label: 'Financial Volatility', value: 34.2, unit: '%', trend: 'up' as const },
+  { label: 'Weather Systems', value: 28.7, unit: '%', trend: 'stable' as const },
+  { label: 'Satellite Uptime', value: 99.97, unit: '%', trend: 'stable' as const },
+  { label: 'Cyber Defense', value: 96.4, unit: '%', trend: 'up' as const },
+];
