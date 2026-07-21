@@ -4,7 +4,6 @@ import { useMemo } from 'react';
 import {
   ReactFlow,
   Background,
-  Controls,
   Node,
   Edge,
   Position,
@@ -168,11 +167,12 @@ export default function AgentGraph({ agents, state }: AgentGraphProps) {
         fitViewOptions={{ padding: 0.3 }}
         zoomOnScroll={false}
         zoomOnPinch={true}
+        minZoom={0.5}
+        maxZoom={1.5}
         proOptions={{ hideAttribution: true }}
         className="bg-obsidian"
       >
         <Background color="rgba(255,255,255,0.03)" gap={20} />
-        <Controls className="!bg-graphite !border-pearl/10 !rounded-lg [&_button]:!text-titanium [&_button]:!border-pearl/10 [&_button]:hover:!bg-pearl/5" />
       </ReactFlow>
     </div>
   );
