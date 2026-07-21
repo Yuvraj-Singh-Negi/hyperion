@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Activity, Shield, ChevronDown, Terminal, Zap, Radio, Mic, MicOff, Command } from 'lucide-react';
+import Image from 'next/image';
 import SplashScreen from '@/components/SplashScreen';
 import DataUploader from '@/components/DataUploader';
 import AgentGraph from '@/components/AgentGraph';
@@ -84,6 +85,16 @@ export default function Home() {
       {!splashComplete && <SplashScreen onComplete={() => setSplashComplete(true)} />}
 
       <div ref={mainRef} id="main" className="relative min-h-screen bg-obsidian">
+        <div className="fixed inset-0 z-0">
+          <Image
+            src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1920&q=85"
+            alt="Earth from orbit"
+            fill
+            className="object-cover opacity-[0.08]"
+            priority
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-obsidian/60 via-obsidian/40 to-obsidian" />
+        </div>
         <nav className="fixed top-0 left-0 right-0 z-50 px-4 pt-4">
           <div className="max-w-7xl mx-auto">
             <div className="glass rounded-2xl px-6 py-3 flex items-center justify-between">
@@ -173,10 +184,21 @@ export default function Home() {
           </div>
         </nav>
 
-        <main className="pt-24 pb-20 max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="fixed inset-0 z-[1] pointer-events-none">
+          <Image
+            src="https://images.unsplash.com/photo-1517976487492-5750f3195933?w=1920&q=85"
+            alt="Command center"
+            fill
+            className="object-cover opacity-[0.04]"
+          />
+        </div>
+        <main className="relative z-10 pt-24 pb-20 max-w-7xl mx-auto px-4 sm:px-6">
           <AnimatePresence mode="wait">
             {view === 'upload' && (
-              <motion.div key="upload" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
+              <motion.div key="upload" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6 relative">
+                <div className="absolute -top-20 -right-20 w-96 h-96 opacity-[0.03] pointer-events-none">
+                  <Image src="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&q=85" alt="Servers" fill className="object-cover" />
+                </div>
                 <div className="text-center space-y-3 mb-8">
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass-light text-xs tracking-wider text-ice-blue uppercase">
                     <Upload size={12} />
@@ -273,7 +295,10 @@ export default function Home() {
             )}
 
             {view === 'dashboard' && (
-              <motion.div key="dashboard" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
+              <motion.div key="dashboard" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6 relative">
+                <div className="absolute -bottom-20 -left-20 w-80 h-80 opacity-[0.03] pointer-events-none">
+                  <Image src="https://images.unsplash.com/photo-1573164713988-8665fc963095?w=800&q=85" alt="Data center" fill className="object-cover" />
+                </div>
                 <div className="text-center space-y-3 mb-6">
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass-light text-xs tracking-wider text-amber uppercase">
                     <Zap size={12} />
