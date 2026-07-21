@@ -172,12 +172,13 @@ export default function AgentGraph({ agents, state }: AgentGraphProps) {
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ padding: 0.3 }}
-        zoomOnScroll={false}
-        zoomOnPinch={true}
-        minZoom={0.5}
-        maxZoom={1.5}
-        panOnDrag={true}
-        selectNodesOnDrag={false}
+    zoomOnScroll={false}
+    zoomOnPinch={true}
+    preventScrolling={false}
+    minZoom={0.5}
+    maxZoom={1.5}
+    panOnDrag={true}
+    selectNodesOnDrag={false}
         proOptions={{ hideAttribution: true }}
         className="bg-obsidian"
       >
