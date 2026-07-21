@@ -1,5 +1,5 @@
 const AI_ENDPOINT = 'https://api.x.ai/v1/chat/completions';
-const AI_MODEL = 'grok-4.5';
+const AI_MODEL = 'grok-4';
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     if (!res.ok) {
       const errorText = await res.text();
       console.error(`xAI API error (${res.status}): ${errorText}`);
-      return Response.json({ error: `API error: ${res.status}` }, { status: 502 });
+      return Response.json({ error: `xAI API error (${res.status}): ${errorText.slice(0, 300)}` }, { status: 502 });
     }
 
     const data = await res.json();
